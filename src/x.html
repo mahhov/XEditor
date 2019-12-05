@@ -1,0 +1,193 @@
+<style>
+	#text {
+		outline: 1px solid;
+		overflow: auto;
+	}
+
+	span.selected {
+		color: #fff;
+		background: #333;
+	}
+
+	span.ends-at {
+		color: #000;
+		background: #aaa;
+	}
+</style>
+
+<pre id="text"></pre>
+
+<script>
+	const $ = document.querySelector.bind(document);
+
+	const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+	class Cursor {
+		constructor(left = 0, right = left, reverse = false) {
+			this.set(left, right, reverse);
+		}
+
+		set(left = 0, right = left, reverse = false) {
+			this.left = left;
+			this.right = right;
+			this.reverse = reverse;
+		}
+
+		get clone() {
+			return new Cursor(this.left, this.right, this.reverse);
+		}
+
+		// shifts this according to removal of cursor
+		shiftByRemovalOf(cursor) {
+			this.left = cursor.shiftPointForRemoval(this.left);
+			this.right = cursor.shiftPointForRemoval(this.right);
+		}
+
+		// shifts point according to removal of this
+		shiftPointForRemoval(point) {
+			return point - Math.max(Math.min(point, this.right) - this.left, 0);
+		}
+
+		// shifts this according to insertion
+		shiftByInsertionOf(insertionPoint, insertionLength) {
+			if (insertionPoint <= this.left)
+				this.left += insertionLength;
+			if (insertionPoint <= this.right)
+				this.right += insertionLength;
+		}
+
+		get end() {
+			return this.reverse ? this.left : this.right;
+		}
+
+		endsAt(point) {
+			return point === this.end;
+		}
+
+		includes(point) {
+			return point >= this.left && point < this.right;
+		}
+	}
+
+	class Text {
+		constructor(text = '', cursors = [new Cursor()]) {
+			this.text = text;
+			this.cursors = cursors;
+		}
+
+		pointToXY(point) {
+			let preText = this.text.slice(0, point);
+			let y = (preText.match(/\n/g) || []).length;
+			let x = preText.match(/.*$/)[0].length;
+			return {x, y};
+		}
+
+		xyToPoint(x, y) {
+			return y >= 0 ? this.text.match(new RegExp(`(.*\\n?){0,${y}}.{0,${x}}`))[0].length : 0;
+		}
+
+		removeTextAt(cursor) {
+			this.text = this.text.slice(0, cursor.left) + this.text.slice(cursor.right);
+			this.cursors.forEach(cursorI => cursorI.shiftByRemovalOf(cursor));
+		}
+
+		insertTextAt(text, point) {
+			this.text = this.text.slice(0, point) + text + this.text.slice(point);
+			this.cursors.forEach(cursorI => cursorI.shiftByInsertionOf(point, text.length));
+		}
+
+		replaceSelections(text) {
+			this.cursors.forEach(cursor => {
+				this.removeTextAt(cursor);
+				this.insertTextAt(text, cursor.end);
+			});
+		}
+
+		moveSelections(dx, dy, collapse) {
+			this.cursors.forEach(cursor => {
+				let newEnd;
+				if (dy) {
+					let {x, y} = this.pointToXY(cursor.end);
+					newEnd = this.xyToPoint(x + dx, y + dy);
+					console.log(cursor.end, '(', x, y, ')', '+ (', dx, dy, ') =', newEnd);
+				} else
+					newEnd = cursor.end + dx;
+				newEnd = clamp(newEnd, 0, this.text.length);
+				if (collapse)
+					cursor.set(newEnd);
+				else
+					;
+			});
+		}
+
+		render() {
+			while ($('#text').firstChild)
+				$('#text').removeChild($('#text').firstChild);
+			let splits = this.cursors
+				.flatMap(cursor => [cursor.left, cursor.right, cursor.end + 1])
+				.filter((split, i, a) => a.indexOf(split) === i)
+				.sort((s1, s2) => s1 - s2);
+			if (splits[0] !== 0)
+				splits.unshift(0);
+			let paddedText = this.text + ' ';
+			splits.forEach((split, i, a) => {
+				let span = document.createElement('span');
+				span.textContent = paddedText.slice(split, a[i + 1]).replace(/\n/g, ' \n');
+				if (this.cursors.some(cursor => cursor.endsAt(split)))
+					span.classList.add('ends-at');
+				else if (this.cursors.some(cursor => cursor.includes(split)))
+					span.classList.add('selected');
+				$('#text').appendChild(span);
+			});
+		}
+	}
+
+	let text = new Text();
+	text.render();
+	// let text = new Text('hello world\nline 2\nand line 3, the last line', [new Cursor(2, 4), new Cursor(7, 10, true)]);
+	//                       ^^_  _^^ [0, 2, 4, 5, 7, 8, 10]
+
+	document.addEventListener('keydown', e => {
+		console.log(e.key, e.ctrlKey, e.shiftKey, e.altKey);
+		switch (e.key) {
+			case 'Escape':
+				text.cursors = [text.cursors[0]];
+				break;
+			case 'Enter':
+				text.replaceSelections('\n');
+				break;
+			case 'ArrowLeft':
+				text.moveSelections(-1, 0, !e.key.shift);
+				break;
+			case 'ArrowRight':
+				text.moveSelections(1, 0, !e.key.shift);
+				break;
+			case 'ArrowUp':
+				text.moveSelections(0, -1, !e.key.shift);
+				break;
+			case 'ArrowDown':
+				text.moveSelections(0, 1, !e.key.shift);
+				break;
+			default:
+				if (e.key.length === 1)
+					text.replaceSelections(e.key);
+		}
+		text.render();
+	});
+
+	// zoom in / out / default
+
+	// shift cursor move
+
+	// move with ctrl, (alt) home/end,
+
+	// del, backspace
+
+	// c-g select next
+	// c-s-g remove last selection
+	// c-a-g select all
+	// c-h goto next
+	// c-s-h goto previous
+
+	// goto text
+</script>
