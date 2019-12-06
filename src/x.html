@@ -141,13 +141,16 @@
 			this.cursors = [new Cursor(0, this.text.length)];
 		}
 
-		moveCursors(dx, dy, word, collapse) {
+		moveCursors(right, vertical, word, line, select) {
 			this.cursors.forEach(cursor => {
 				let newStart = -1;
 				let newEnd = cursor.end;
 
-				if (word) {
-					if (dy < 0) {
+				if (line)
+					newEnd = this.findNextLinePoint(newEnd, right);
+
+				else if (word) {
+					if (vertical && !right) {
 						newStart = this.findNextWordPoint(cursor.start + 1, false);
 						let tempNewEnd = this.findNextWordPoint(cursor.start, true);
 						if (tempNewEnd === newEnd && newStart === cursor.left) {
@@ -155,26 +158,27 @@
 							newEnd = this.findNextLinePoint(cursor.right, true);
 						} else if (tempNewEnd > newEnd)
 							newEnd = tempNewEnd;
-					} else if (dy > 0)
+					} else if (vertical && right)
 						newEnd = cursor.start;
-					if (dx)
-						newEnd = this.findNextWordPoint(newEnd, dx > 0);
+					else
+						newEnd = this.findNextWordPoint(newEnd, right);
 
 				} else {
-					if (dy) {
+					let d = right * 2 - 1;
+					if (vertical) {
 						let {x, y} = this.pointToXY(newEnd);
-						newEnd = this.xyToPoint(x, y + dy);
-					}
-					newEnd = clamp(newEnd + dx, 0, this.text.length);
+						newEnd = this.xyToPoint(x, y + d);
+					} else
+						newEnd = clamp(newEnd + d, 0, this.text.length);
 				}
 
 				if (newStart !== -1)
 					cursor.set(newStart, newEnd);
-				else if (collapse)
-					cursor.set(newEnd);
-				else
+				else if (select)
 					cursor.end = newEnd;
-			});
+				else
+					cursor.set(newEnd);
+			})
 		}
 
 		findNextWordPoint(point, right) {
@@ -227,17 +231,23 @@
 			case 'Enter':
 				text.replaceSelections('\n');
 				break;
+			case 'Home':
+				text.moveCursors(false, false, false, true, e.shiftKey);
+				break;
+			case 'End':
+				text.moveCursors(true, false, false, true, e.shiftKey);
+				break;
 			case 'ArrowLeft':
-				text.moveCursors(-1, 0, e.ctrlKey, !e.shiftKey);
+				text.moveCursors(false, false, e.ctrlKey, e.altKey, e.shiftKey);
 				break;
 			case 'ArrowRight':
-				text.moveCursors(1, 0, e.ctrlKey, !e.shiftKey);
+				text.moveCursors(true, false, e.ctrlKey, e.altKey, e.shiftKey);
 				break;
 			case 'ArrowUp':
-				text.moveCursors(0, -1, e.ctrlKey, !e.shiftKey);
+				text.moveCursors(false, true, e.ctrlKey, e.altKey, e.shiftKey);
 				break;
 			case 'ArrowDown':
-				text.moveCursors(0, 1, e.ctrlKey, !e.shiftKey);
+				text.moveCursors(true, true, e.ctrlKey, e.altKey, e.shiftKey);
 				break;
 			case 'Delete':
 				text.deleteSelections(true, e.ctrlKey, e.shiftKey, e.altKey);
@@ -292,5 +302,9 @@
 	// copy paste cut
 
 	// move cursor sub word
+
+	// arrows to not move cursor when have selection
+
+	// alft shift arrows to create cursors
 
 </script>
