@@ -115,15 +115,26 @@
 			});
 		}
 
-		moveSelections(dx, dy, collapse) {
+		moveSelections(dx, dy, word, collapse) {
 			this.cursors.forEach(cursor => {
-				let newEnd;
-				if (dy) {
-					let {x, y} = this.pointToXY(cursor.end);
-					newEnd = this.xyToPoint(x + dx, y + dy);
-				} else
-					newEnd = cursor.end + dx;
-				newEnd = clamp(newEnd, 0, this.text.length);
+				let newEnd = cursor.end;
+
+				if (word) {
+					if (dx) {
+						let subText = dx < 0 ? this.text.slice(0, newEnd) : this.text.slice(newEnd);
+						let regex = new RegExp('(\\w+|(.)\\2*)\\s*' + (dx < 0 ? '$' : ''));
+						let move = subText.match(regex)[0].length;
+						newEnd += move * dx;
+					}
+
+				} else {
+					if (dy) {
+						let {x, y} = this.pointToXY(newEnd);
+						newEnd = this.xyToPoint(x, y + dy);
+					}
+					newEnd = clamp(newEnd + dx, 0, this.text.length);
+				}
+
 				if (collapse)
 					cursor.set(newEnd);
 				else
@@ -168,16 +179,16 @@
 				text.replaceSelections('\n');
 				break;
 			case 'ArrowLeft':
-				text.moveSelections(-1, 0, !e.shiftKey);
+				text.moveSelections(-1, 0, e.ctrlKey, !e.shiftKey);
 				break;
 			case 'ArrowRight':
-				text.moveSelections(1, 0, !e.shiftKey);
+				text.moveSelections(1, 0, e.ctrlKey, !e.shiftKey);
 				break;
 			case 'ArrowUp':
-				text.moveSelections(0, -1, !e.shiftKey);
+				text.moveSelections(0, -1, e.ctrlKey, !e.shiftKey);
 				break;
 			case 'ArrowDown':
-				text.moveSelections(0, 1, !e.shiftKey);
+				text.moveSelections(0, 1, e.ctrlKey, !e.shiftKey);
 				break;
 			default:
 				if (e.key.length === 1)
@@ -206,4 +217,18 @@
 	// on paren, add closing paren. wrap selected text
 
 	// move lines up down
+	// delete,  duplicate, comment lines
+
+	// mouse cursor
+
+	// undo redo
+	// prev/next edit location
+	// prev/next cursor location
+
+	// autocomplete
+
+	// ctrl up/down to select/deselect
+
+	// copy paste cut
+
 </script>
