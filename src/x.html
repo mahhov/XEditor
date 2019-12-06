@@ -170,6 +170,10 @@
 
 		// cursor methods
 
+		selectNone() {
+			this.cursors = [this.cursors[0]]; // todo considering collapsing cursor[0]
+		}
+
 		selectAll() {
 			this.cursors = [new Cursor(0, this.text.length)];
 		}
@@ -233,6 +237,27 @@
 			return point + (move + (point > this.text.length ? 1 : 0)) * (right ? 1 : -1);
 		}
 
+		// clipboard methods
+
+		copy() {
+			// todo multi cursor copy, cut, paste
+			let text = this.getTextAt(this.cursors[0]);
+			navigator.clipboard.writeText(text);
+		}
+
+		cut() {
+			let text = this.getTextAt(this.cursors[0]);
+			this.removeTextAt(this.cursors[0]);
+			navigator.clipboard.writeText(text);
+		}
+
+		async paste() {
+			let text = await navigator.clipboard.readText();
+			this.replaceSelections(text);
+		}
+
+		// render methods
+
 		render() {
 			while ($('#text').firstChild)
 				$('#text').removeChild($('#text').firstChild);
@@ -260,11 +285,10 @@
 	// let text = new Text('hello world\nline 2\nand line 3, the last line', [new Cursor(2, 4), new Cursor(7, 10, true)]);
 	//                       ^^_  _^^ [0, 2, 4, 5, 7, 8, 10]
 
-	document.addEventListener('keydown', e => {
+	document.addEventListener('keydown', async e => {
+		let preventType;
+
 		switch (e.key) {
-			case 'Escape':
-				text.cursors = [text.cursors[0]];
-				break;
 			case 'Enter':
 				text.replaceSelections('\n');
 				break;
@@ -293,24 +317,37 @@
 				text.deleteSelections(false, e.ctrlKey, e.shiftKey, e.altKey);
 				break;
 			case '/':
-				if (e.ctrlKey)
+				if (preventType = e.ctrlKey)
 					text.toggleCommentSelections(e.shiftKey);
-				else
-					text.replaceSelections(e.key);
+				break;
+			case 'Escape':
+				text.selectNone();
 				break;
 			case 'a':
-				if (e.ctrlKey) {
+				if (preventType = e.ctrlKey) {
 					text.selectAll();
 					e.preventDefault();
-				} else
-					text.replaceSelections(e.key);
+				}
+				break;
+			case 'c':
+				if (preventType = e.ctrlKey)
+					text.copy();
+				break;
+			case 'x':
+				if (preventType = e.ctrlKey)
+					text.cut();
+				break;
+			case 'v':
+				if (preventType = e.ctrlKey)
+					await text.paste();
 				break;
 			default:
-				if (e.key.length === 1)
-					text.replaceSelections(e.key);
-				else
+				if (e.key.length !== 1)
 					console.log(e.key, e.ctrlKey, e.shiftKey, e.altKey);
 		}
+		if (e.key.length === 1 && !preventType)
+			text.replaceSelections(e.key);
+
 		text.render();
 		text.save();
 	});
@@ -322,6 +359,8 @@
 	// c-s-h goto previous
 
 	// goto text
+
+	// search by regex and whole word and case sensitive
 
 	// tab to indent / unindent, ctrl tab to clone indentation form above line
 	// m matching paren
@@ -350,4 +389,6 @@
 	// zoom in / out / default
 
 	// display line, column, selection numbers
+
+	// tabs and files
 </script>
