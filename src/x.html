@@ -91,6 +91,15 @@
 			this.cursors = cursors;
 		}
 
+		static restore() {
+			return new Text(
+				localStorage.getItem('text') || '');
+		}
+
+		save() {
+			localStorage.setItem('text', this.text);
+		}
+
 		pointToXY(point) {
 			let preText = this.text.substring(0, point);
 			let y = (preText.match(/\n/g) || []).length;
@@ -246,7 +255,7 @@
 		}
 	}
 
-	let text = new Text('this is some words');
+	let text = Text.restore();
 	text.render();
 	// let text = new Text('hello world\nline 2\nand line 3, the last line', [new Cursor(2, 4), new Cursor(7, 10, true)]);
 	//                       ^^_  _^^ [0, 2, 4, 5, 7, 8, 10]
@@ -303,6 +312,7 @@
 					console.log(e.key, e.ctrlKey, e.shiftKey, e.altKey);
 		}
 		text.render();
+		text.save();
 	});
 
 	// c-g select next
@@ -338,4 +348,6 @@
 	// alt shift arrows to create cursors
 
 	// zoom in / out / default
+
+	// display line, column, selection numbers
 </script>
