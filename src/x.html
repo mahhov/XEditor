@@ -2,6 +2,7 @@
 	#text {
 		outline: 1px solid;
 		overflow: auto;
+		font-size: 16px;
 	}
 
 	span.selected {
@@ -11,7 +12,7 @@
 
 	span.ends-at {
 		color: #000;
-		background: #aaa;
+		background: #ddd;
 	}
 </style>
 
@@ -56,8 +57,19 @@
 				this.right += insertionLength;
 		}
 
+		get start() {
+			return this.reverse ? this.right : this.left;
+		}
+
 		get end() {
 			return this.reverse ? this.left : this.right;
+		}
+
+		set end(end) {
+			let start = this.start;
+			this.reverse = end < start;
+			this.left = this.reverse ? end : start;
+			this.right = this.reverse ? start : end;
 		}
 
 		endsAt(point) {
@@ -109,14 +121,13 @@
 				if (dy) {
 					let {x, y} = this.pointToXY(cursor.end);
 					newEnd = this.xyToPoint(x + dx, y + dy);
-					console.log(cursor.end, '(', x, y, ')', '+ (', dx, dy, ') =', newEnd);
 				} else
 					newEnd = cursor.end + dx;
 				newEnd = clamp(newEnd, 0, this.text.length);
 				if (collapse)
 					cursor.set(newEnd);
 				else
-					;
+					cursor.end = newEnd;
 			});
 		}
 
@@ -133,10 +144,10 @@
 			splits.forEach((split, i, a) => {
 				let span = document.createElement('span');
 				span.textContent = paddedText.slice(split, a[i + 1]).replace(/\n/g, ' \n');
-				if (this.cursors.some(cursor => cursor.endsAt(split)))
-					span.classList.add('ends-at');
-				else if (this.cursors.some(cursor => cursor.includes(split)))
+				if (this.cursors.some(cursor => cursor.includes(split)))
 					span.classList.add('selected');
+				else if (this.cursors.some(cursor => cursor.endsAt(split)))
+					span.classList.add('ends-at');
 				$('#text').appendChild(span);
 			});
 		}
@@ -157,16 +168,16 @@
 				text.replaceSelections('\n');
 				break;
 			case 'ArrowLeft':
-				text.moveSelections(-1, 0, !e.key.shift);
+				text.moveSelections(-1, 0, !e.shiftKey);
 				break;
 			case 'ArrowRight':
-				text.moveSelections(1, 0, !e.key.shift);
+				text.moveSelections(1, 0, !e.shiftKey);
 				break;
 			case 'ArrowUp':
-				text.moveSelections(0, -1, !e.key.shift);
+				text.moveSelections(0, -1, !e.shiftKey);
 				break;
 			case 'ArrowDown':
-				text.moveSelections(0, 1, !e.key.shift);
+				text.moveSelections(0, 1, !e.shiftKey);
 				break;
 			default:
 				if (e.key.length === 1)
@@ -176,8 +187,6 @@
 	});
 
 	// zoom in / out / default
-
-	// shift cursor move
 
 	// move with ctrl, (alt) home/end,
 
@@ -190,4 +199,11 @@
 	// c-s-h goto previous
 
 	// goto text
+
+	// tab to indent / unindent
+	// m matching paren
+
+	// on paren, add closing paren. wrap selected text
+
+	// move lines up down
 </script>
