@@ -98,6 +98,8 @@
 			return y >= 0 ? this.text.match(new RegExp(`(.*\\n?){0,${y}}.{0,${x}}`))[0].length : 0;
 		}
 
+		// text editing methods
+
 		removeTextAt(cursor) {
 			this.text = this.text.slice(0, cursor.left) + this.text.slice(cursor.right);
 			this.cursors.forEach(cursorI => cursorI.shiftByRemovalOf(cursor));
@@ -115,17 +117,26 @@
 			});
 		}
 
-		moveSelections(dx, dy, word, collapse) {
+		// cursor methods
+
+		moveCursors(dx, dy, word, collapse) {
 			this.cursors.forEach(cursor => {
+				let newStart = -1;
 				let newEnd = cursor.end;
 
 				if (word) {
-					if (dx) {
-						let subText = dx < 0 ? this.text.slice(0, newEnd) : this.text.slice(newEnd);
-						let regex = new RegExp('(\\w+|(.)\\2*)\\s*' + (dx < 0 ? '$' : ''));
-						let move = subText.match(regex)[0].length;
-						newEnd += move * dx;
-					}
+					if (dy < 0) {
+						newStart = this.findNextWordPoint(cursor.start + 1, false);
+						let tempNewEnd = this.findNextWordPoint(cursor.start, true);
+						if (tempNewEnd === newEnd && newStart === cursor.left) {
+							newStart = this.findNextLinePoint(cursor.left, false);
+							newEnd = this.findNextLinePoint(cursor.right, true);
+						} else if (tempNewEnd > newEnd)
+							newEnd = tempNewEnd;
+					} else if (dy > 0)
+						newEnd = cursor.start;
+					if (dx)
+						newEnd = this.findNextWordPoint(newEnd, dx > 0);
 
 				} else {
 					if (dy) {
@@ -135,11 +146,28 @@
 					newEnd = clamp(newEnd + dx, 0, this.text.length);
 				}
 
-				if (collapse)
+				if (newStart !== -1)
+					cursor.set(newStart, newEnd);
+				else if (collapse)
 					cursor.set(newEnd);
 				else
 					cursor.end = newEnd;
 			});
+		}
+
+		findNextWordPoint(point, right) {
+			return this.findNextPoint(point, right, /(\w+|(.)\2*)\s*/);
+		}
+
+		findNextLinePoint(point, right) {
+			return this.findNextPoint(point, right, /(.*)/);
+		}
+
+		findNextPoint(point, right, breakRegex) {
+			let subText = right ? this.text.slice(point) : this.text.slice(0, point);
+			let regex = new RegExp(breakRegex.source + (right ? '' : '$'));
+			let move = (subText.match(regex) || [''])[0].length;
+			return point + (move + (point > this.text.length ? 1 : 0)) * (right ? 1 : -1);
 		}
 
 		render() {
@@ -164,13 +192,12 @@
 		}
 	}
 
-	let text = new Text();
+	let text = new Text('this is some words');
 	text.render();
 	// let text = new Text('hello world\nline 2\nand line 3, the last line', [new Cursor(2, 4), new Cursor(7, 10, true)]);
 	//                       ^^_  _^^ [0, 2, 4, 5, 7, 8, 10]
 
 	document.addEventListener('keydown', e => {
-		console.log(e.key, e.ctrlKey, e.shiftKey, e.altKey);
 		switch (e.key) {
 			case 'Escape':
 				text.cursors = [text.cursors[0]];
@@ -179,20 +206,22 @@
 				text.replaceSelections('\n');
 				break;
 			case 'ArrowLeft':
-				text.moveSelections(-1, 0, e.ctrlKey, !e.shiftKey);
+				text.moveCursors(-1, 0, e.ctrlKey, !e.shiftKey);
 				break;
 			case 'ArrowRight':
-				text.moveSelections(1, 0, e.ctrlKey, !e.shiftKey);
+				text.moveCursors(1, 0, e.ctrlKey, !e.shiftKey);
 				break;
 			case 'ArrowUp':
-				text.moveSelections(0, -1, e.ctrlKey, !e.shiftKey);
+				text.moveCursors(0, -1, e.ctrlKey, !e.shiftKey);
 				break;
 			case 'ArrowDown':
-				text.moveSelections(0, 1, e.ctrlKey, !e.shiftKey);
+				text.moveCursors(0, 1, e.ctrlKey, !e.shiftKey);
 				break;
 			default:
 				if (e.key.length === 1)
 					text.replaceSelections(e.key);
+				else
+					console.log(e.key, e.ctrlKey, e.shiftKey, e.altKey);
 		}
 		text.render();
 	});
@@ -227,8 +256,10 @@
 
 	// autocomplete
 
-	// ctrl up/down to select/deselect
+	// ctrl a select al
 
 	// copy paste cut
+
+	// move cursor sub word
 
 </script>
