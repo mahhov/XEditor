@@ -119,6 +119,10 @@
 
 		// cursor methods
 
+		selectAll() {
+			this.cursors = [new Cursor(0, this.text.length)];
+		}
+
 		moveCursors(dx, dy, word, collapse) {
 			this.cursors.forEach(cursor => {
 				let newStart = -1;
@@ -217,6 +221,13 @@
 			case 'ArrowDown':
 				text.moveCursors(0, 1, e.ctrlKey, !e.shiftKey);
 				break;
+			case 'a':
+				if (e.ctrlKey) {
+					text.selectAll();
+					e.preventDefault();
+				} else
+					text.replaceSelections(e.key);
+				break;
 			default:
 				if (e.key.length === 1)
 					text.replaceSelections(e.key);
@@ -255,8 +266,6 @@
 	// prev/next cursor location
 
 	// autocomplete
-
-	// ctrl a select al
 
 	// copy paste cut
 
