@@ -88,7 +88,7 @@
 		}
 
 		pointToXY(point) {
-			let preText = this.text.slice(0, point);
+			let preText = this.text.substring(0, point);
 			let y = (preText.match(/\n/g) || []).length;
 			let x = preText.match(/.*$/)[0].length;
 			return {x, y};
@@ -101,12 +101,12 @@
 		// text editing methods
 
 		removeTextAt(cursor) {
-			this.text = this.text.slice(0, cursor.left) + this.text.slice(cursor.right);
+			this.text = this.text.substring(0, cursor.left) + this.text.substring(cursor.right);
 			this.cursors.forEach(cursorI => cursorI.shiftByRemovalOf(cursor));
 		}
 
 		insertTextAt(text, point) {
-			this.text = this.text.slice(0, point) + text + this.text.slice(point);
+			this.text = this.text.substring(0, point) + text + this.text.substring(point);
 			this.cursors.forEach(cursorI => cursorI.shiftByInsertionOf(point, text.length));
 		}
 
@@ -114,6 +114,24 @@
 			this.cursors.forEach(cursor => {
 				this.removeTextAt(cursor);
 				this.insertTextAt(text, cursor.end);
+			});
+		}
+
+		deleteSelections(right, word, line, allLine) {
+			this.cursors.forEach(cursor => {
+				let delIndices = [cursor.left, cursor.right];
+				let i = right + 0;
+				if (allLine)
+					delIndices = delIndices.map((delIndex, i) => this.findNextLinePoint(delIndex, i));
+				else if (delIndices[0] !== delIndices[1])
+					;
+				else if (line)
+					delIndices[i] = this.findNextLinePoint(delIndices[i], right);
+				else if (word)
+					delIndices[i] = this.findNextWordPoint(delIndices[i], right);
+				else
+					delIndices[i] = clamp(delIndices[i] + right * 2 - 1, 0, this.text.length);
+				this.removeTextAt(new Cursor(delIndices[0], delIndices[1]));
 			});
 		}
 
@@ -168,7 +186,7 @@
 		}
 
 		findNextPoint(point, right, breakRegex) {
-			let subText = right ? this.text.slice(point) : this.text.slice(0, point);
+			let subText = right ? this.text.substring(point) : this.text.substring(0, point);
 			let regex = new RegExp(breakRegex.source + (right ? '' : '$'));
 			let move = (subText.match(regex) || [''])[0].length;
 			return point + (move + (point > this.text.length ? 1 : 0)) * (right ? 1 : -1);
@@ -186,7 +204,7 @@
 			let paddedText = this.text + ' ';
 			splits.forEach((split, i, a) => {
 				let span = document.createElement('span');
-				span.textContent = paddedText.slice(split, a[i + 1]).replace(/\n/g, ' \n');
+				span.textContent = paddedText.substring(split, a[i + 1]).replace(/\n/g, ' \n');
 				if (this.cursors.some(cursor => cursor.includes(split)))
 					span.classList.add('selected');
 				else if (this.cursors.some(cursor => cursor.endsAt(split)))
@@ -221,6 +239,12 @@
 			case 'ArrowDown':
 				text.moveCursors(0, 1, e.ctrlKey, !e.shiftKey);
 				break;
+			case 'Delete':
+				text.deleteSelections(true, e.ctrlKey, e.shiftKey, e.altKey);
+				break;
+			case 'Backspace':
+				text.deleteSelections(false, e.ctrlKey, e.shiftKey, e.altKey);
+				break;
 			case 'a':
 				if (e.ctrlKey) {
 					text.selectAll();
@@ -240,8 +264,6 @@
 	// zoom in / out / default
 
 	// move with ctrl, (alt) home/end,
-
-	// del, backspace
 
 	// c-g select next
 	// c-s-g remove last selection
