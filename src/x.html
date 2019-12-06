@@ -57,6 +57,10 @@
 				this.right += insertionLength;
 		}
 
+		get empty() {
+			return this.left === this.right;
+		}
+
 		get start() {
 			return this.reverse ? this.right : this.left;
 		}
@@ -100,6 +104,10 @@
 
 		// text editing methods
 
+		getTextAt(cursor) {
+			return this.text.substring(cursor.left, cursor.right);
+		}
+
 		removeTextAt(cursor) {
 			this.text = this.text.substring(0, cursor.left) + this.text.substring(cursor.right);
 			this.cursors.forEach(cursorI => cursorI.shiftByRemovalOf(cursor));
@@ -132,6 +140,22 @@
 				else
 					delIndices[i] = clamp(delIndices[i] + right * 2 - 1, 0, this.text.length);
 				this.removeTextAt(new Cursor(delIndices[0], delIndices[1]));
+			});
+		}
+
+		toggleCommentSelections(inline) {
+			this.cursors.forEach(cursor => {
+				if (inline) {
+					// todo inline commenting
+				} else {
+					// todo if multiple lines selected, comment/uncomment all
+					let prefixPoint = this.findNextLineTextPoint(cursor.left, false);
+					let prefixCursor = new Cursor(prefixPoint, prefixPoint + 3);
+					if (this.getTextAt(prefixCursor) === '// ')
+						this.removeTextAt(prefixCursor);
+					else
+						this.insertTextAt('// ', prefixPoint);
+				}
 			});
 		}
 
@@ -186,7 +210,11 @@
 		}
 
 		findNextLinePoint(point, right) {
-			return this.findNextPoint(point, right, /(.*)/);
+			return this.findNextPoint(point, right, /.*/);
+		}
+
+		findNextLineTextPoint(point, right) {
+			return this.findNextPoint(point, right, /.*\s*/);
 		}
 
 		findNextPoint(point, right, breakRegex) {
@@ -255,6 +283,12 @@
 			case 'Backspace':
 				text.deleteSelections(false, e.ctrlKey, e.shiftKey, e.altKey);
 				break;
+			case '/':
+				if (e.ctrlKey)
+					text.toggleCommentSelections(e.shiftKey);
+				else
+					text.replaceSelections(e.key);
+				break;
 			case 'a':
 				if (e.ctrlKey) {
 					text.selectAll();
@@ -271,10 +305,6 @@
 		text.render();
 	});
 
-	// zoom in / out / default
-
-	// move with ctrl, (alt) home/end,
-
 	// c-g select next
 	// c-s-g remove last selection
 	// c-a-g select all
@@ -283,13 +313,13 @@
 
 	// goto text
 
-	// tab to indent / unindent
+	// tab to indent / unindent, ctrl tab to clone indentation form above line
 	// m matching paren
 
 	// on paren, add closing paren. wrap selected text
 
 	// move lines up down
-	// delete,  duplicate, comment lines
+	// delete, duplicate, uppercase toggle
 
 	// mouse cursor
 
@@ -305,6 +335,7 @@
 
 	// arrows to not move cursor when have selection
 
-	// alft shift arrows to create cursors
+	// alt shift arrows to create cursors
 
+	// zoom in / out / default
 </script>
