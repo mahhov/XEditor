@@ -30,6 +30,16 @@
 
 	const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
+	const cursorMovement = {
+		CHAR: 0,
+		ROW: 1,
+		SUB_WORD: 2,
+		WORD: 3,
+		LINE: 4,
+		TEXT: 5,
+		GROW: 6,
+	};
+
 	class Cursor {
 		constructor(left = 0, right = left, reverse = false) {
 			this.set(left, right, reverse);
@@ -165,7 +175,7 @@
 				else if (line)
 					delIndices[i] = this.findNextLinePoint(delIndices[i], right);
 				else if (word)
-					delIndices[i] = this.findNextWordPoint(delIndices[i], right);
+					delIndices[i] = this.findNextWordPoint(delIndices[i], right, false);
 				else
 					delIndices[i] = clamp(delIndices[i] + right * 2 - 1, 0, this.text.length);
 				this.removeTextAt(new Cursor(delIndices[0], delIndices[1]));
@@ -210,35 +220,46 @@
 			this.cursors[this.cursors.length - 1].end = end;
 		}
 
-		moveCursors(right, vertical, word, line, select) {
+		moveCursors(right, movement, select) {
 			this.cursors.forEach(cursor => {
 				let newStart = -1;
 				let newEnd = cursor.end;
+				let d = right * 2 - 1;
 
-				if (line)
-					newEnd = this.findNextLinePoint(newEnd, right);
-
-				else if (word) {
-					if (vertical && !right) {
-						newStart = this.findNextWordPoint(cursor.start + 1, false);
-						let tempNewEnd = this.findNextWordPoint(cursor.start, true);
-						if (tempNewEnd === newEnd && newStart === cursor.left) {
-							newStart = this.findNextLinePoint(cursor.left, false);
-							newEnd = this.findNextLinePoint(cursor.right, true);
-						} else if (tempNewEnd > newEnd)
-							newEnd = tempNewEnd;
-					} else if (vertical && right)
-						newEnd = cursor.start;
-					else
-						newEnd = this.findNextWordPoint(newEnd, right);
-
-				} else {
-					let d = right * 2 - 1;
-					if (vertical) {
+				switch (movement) {
+					case cursorMovement.CHAR:
+						newEnd = clamp(newEnd + d, 0, this.text.length);
+						break;
+					case cursorMovement.ROW:
 						let {x, y} = this.pointToXY(newEnd);
 						newEnd = this.xyToPoint(x, y + d);
-					} else
-						newEnd = clamp(newEnd + d, 0, this.text.length);
+						break;
+					case cursorMovement.SUB_WORD:
+						// todo
+						break;
+					case cursorMovement.WORD:
+						newEnd = this.findNextWordPoint(newEnd, right, false);
+						break;
+					case cursorMovement.LINE:
+						newEnd = this.findNextLinePoint(newEnd, right, false);
+						break;
+					case cursorMovement.TEXT:
+						newEnd = right ? this.text.length : 0;
+						break;
+					case cursorMovement.GROW:
+						if (right)
+							newEnd = cursor.start;
+						else {
+							newStart = this.findNextWordPoint(cursor.start + 1, false);
+							let tempNewEnd = this.findNextWordPoint(newStart, true, true);
+							if (tempNewEnd === newEnd && newStart === cursor.left) {
+								newStart = this.findNextLinePoint(cursor.left, false);
+								newEnd = this.findNextLinePoint(cursor.right, true);
+							} else if (tempNewEnd > newEnd)
+								newEnd = tempNewEnd;
+							console.log(cursor.start, cursor.end, '->', newStart, newEnd)
+						}
+						break;
 				}
 
 				if (newStart !== -1)
@@ -247,11 +268,11 @@
 					cursor.end = newEnd;
 				else
 					cursor.set(newEnd);
-			})
+			});
 		}
 
-		findNextWordPoint(point, right) {
-			return this.findNextPoint(point, right, /(\w+|(.)\2*)\s*/);
+		findNextWordPoint(point, right, excludeNewLine) {
+			return this.findNextPoint(point, right, /((\w+|(.)\3*)[^\S\n]*|\n)/, excludeNewLine);
 		}
 
 		findNextLinePoint(point, right) {
@@ -262,11 +283,13 @@
 			return this.findNextPoint(point, right, /.*\s*/);
 		}
 
-		findNextPoint(point, right, breakRegex) {
+		findNextPoint(point, right, breakRegex, excludeNewLine = false) {
 			let subText = right ? this.text.substring(point) : this.text.substring(0, point);
 			let regex = new RegExp(breakRegex.source + (right ? '' : '$'));
-			let move = (subText.match(regex) || [''])[0].length;
-			return point + (move + (point > this.text.length ? 1 : 0)) * (right ? 1 : -1);
+			let match = (subText.match(regex) || [''])[0];
+			if (excludeNewLine && match === '\n')
+				return point;
+			return point + (match.length + (point > this.text.length ? 1 : 0)) * (right ? 1 : -1);
 		}
 
 		// clipboard methods
@@ -319,6 +342,14 @@
 	//                       ^^_  _^^ [0, 2, 4, 5, 7, 8, 10]
 
 	document.addEventListener('keydown', async e => {
+		const homeEndArrowCursorMovement =
+			[cursorMovement.LINE, cursorMovement.TEXT, cursorMovement.LINE, cursorMovement.TEXT];
+		const horizArrowCursorMovement =
+			[cursorMovement.CHAR, cursorMovement.WORD, cursorMovement.LINE, cursorMovement.TEXT];
+		const vertArrowCursorMovement =
+			[cursorMovement.ROW, cursorMovement.GROW, cursorMovement.ROW, cursorMovement.GROW];
+
+		let modifierIndex = e.ctrlKey + e.altKey * 2;
 		let preventType;
 
 		switch (e.key) {
@@ -326,23 +357,36 @@
 				text.replaceSelections('\n');
 				break;
 			case 'Home':
-				text.moveCursors(false, false, false, true, e.shiftKey);
+				text.moveCursors(false, homeEndArrowCursorMovement[modifierIndex], e.shiftKey);
+				e.preventDefault();
 				break;
 			case 'End':
-				text.moveCursors(true, false, false, true, e.shiftKey);
+				text.moveCursors(true, homeEndArrowCursorMovement[modifierIndex], e.shiftKey);
+				e.preventDefault();
 				break;
 			case 'ArrowLeft':
-				text.moveCursors(false, false, e.ctrlKey, e.altKey, e.shiftKey);
+				text.moveCursors(false, horizArrowCursorMovement[modifierIndex], e.shiftKey);
+				e.preventDefault();
 				break;
 			case 'ArrowRight':
-				text.moveCursors(true, false, e.ctrlKey, e.altKey, e.shiftKey);
+				text.moveCursors(true, horizArrowCursorMovement[modifierIndex], e.shiftKey);
+				e.preventDefault();
 				break;
 			case 'ArrowUp':
-				// todo ctrl up selects more than 1 line after 2rd time
-				text.moveCursors(false, true, e.ctrlKey, e.altKey, e.shiftKey);
+				e.preventDefault();
+				text.moveCursors(false, vertArrowCursorMovement[modifierIndex], e.shiftKey);
 				break;
 			case 'ArrowDown':
-				text.moveCursors(true, true, e.ctrlKey, e.altKey, e.shiftKey);
+				text.moveCursors(true, vertArrowCursorMovement[modifierIndex], e.shiftKey);
+				e.preventDefault();
+				break;
+			case ';':
+				if (preventType = e.ctrlKey)
+					text.moveCursors(false, cursorMovement.SUB_WORD, e.shiftKey);
+				break;
+			case "'":
+				if (preventType = e.ctrlKey)
+					text.moveCursors(true, cursorMovement.SUB_WORD, e.shiftKey);
 				break;
 			case 'Delete':
 				text.deleteSelections(true, e.ctrlKey, e.shiftKey, e.altKey);
@@ -389,7 +433,7 @@
 	let lastMouseDown;
 	document.addEventListener('mousedown', e => {
 		if (Date.now() - lastMouseDown < 300)
-			text.moveCursors(false, true, true, false, false);
+			text.moveCursors(false, cursorMovement.GROW, false);
 		else {
 			let point = text.mouseXyToPoint(e.x, e.y);
 			text.setCursor(point);
@@ -432,10 +476,6 @@
 
 	// autocomplete
 
-	// copy paste cut
-
-	// move cursor sub word
-
 	// arrows to not move cursor when have selection
 
 	// alt shift arrows to create cursors
@@ -447,4 +487,22 @@
 	// tabs and files
 
 	// ctrl alt left/right arrow & ctrl home/end to move to start or end of text. work with shift pressed too
+
+	// home/end to toggle between to post-whitespace and pre-whitespace,
+
+	// a-,/. -> prev / next edit location,
+	// c-,/. -> prev / next cursor location
+
+	// c-s-up/down -> move line up/down
+
+	// DONE
+	// left/right -> char
+	// c-left/right -> word left/right
+	// a-left/right -> line start/end
+	// c-a-left/right -> text start/end
+	// home/end -> line start/end
+	// c-up/down -> grow/shrink
+	// up/down -> row
+	// c-home/end -> text start/end
+	// c-;/' -> sub word
 </script>
