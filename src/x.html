@@ -235,7 +235,7 @@
 						newEnd = this.xyToPoint(x, y + d);
 						break;
 					case cursorMovement.SUB_WORD:
-						// todo
+						newEnd = this.findNextSubWordPoint(newEnd, right);
 						break;
 					case cursorMovement.WORD:
 						newEnd = this.findNextWordPoint(newEnd, right, false);
@@ -269,6 +269,10 @@
 				else
 					cursor.set(newEnd);
 			});
+		}
+
+		findNextSubWordPoint(point, right) {
+			return this.findNextPoint(point, right, /(([a-z]+|[A-Z]+|[0-9]+|(.)\3*)[^\S\n]*|\n)/);
 		}
 
 		findNextWordPoint(point, right, excludeNewLine) {
