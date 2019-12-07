@@ -448,7 +448,9 @@
 		}
 		lastMouseDown = now;
 		text.render();
-		// todo on alt, add or remove cursor
+		// todo alt to block cursor
+		// todo ctrl to add (or remove) cursor
+		// todo on ctrl+alt, add (or remove) block cursor
 	});
 
 	document.addEventListener('mousemove', e => {
@@ -458,6 +460,11 @@
 		text.updateLastCursor(point);
 		text.render();
 	});
+
+	// TODO
+
+	// merge overlapping cursors
+	// remove cursors on click
 
 	// c-g select next
 	// c-s-g remove last selection
