@@ -141,6 +141,7 @@
 		}
 
 		insertTextAt(text, point) {
+			text = text.replace(/\r\n?/g, '\n');
 			this.text = this.text.substring(0, point) + text + this.text.substring(point);
 			this.cursors.forEach(cursorI => cursorI.shiftByInsertionOf(point, text.length));
 		}
