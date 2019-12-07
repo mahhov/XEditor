@@ -41,13 +41,11 @@
 	};
 
 	class Cursor {
-		constructor(left = 0, right = left, reverse = false) {
-			this.set(left, right, reverse);
-		}
-
-		static createUnordered(start, end) {
-			// todo consider replacing constructor with this method
-			return start > end ? new Cursor(end, start, true) : new Cursor(start, end);
+		constructor(start = 0, end = start) {
+			if (start <= end)
+				this.set(start, end);
+			else
+				this.set(end, start, true);
 		}
 
 		set(left = 0, right = left, reverse = false) {
@@ -57,7 +55,7 @@
 		}
 
 		get clone() {
-			return new Cursor(this.left, this.right, this.reverse);
+			return new Cursor(this.start, this.right);
 		}
 
 		// shifts this according to removal of cursor
@@ -209,11 +207,11 @@
 		}
 
 		setCursor(start, end) {
-			this.cursors = [Cursor.createUnordered(start, end)];
+			this.cursors = [new Cursor(start, end)];
 		}
 
 		addCursor(start, end) {
-			this.cursors.push(Cursor.createUnordered(start, end));
+			this.cursors.push(new Cursor(start, end));
 		}
 
 		updateLastCursor(end) {
@@ -342,7 +340,7 @@
 
 	let text = Text.restore();
 	text.render();
-	// let text = new Text('hello world\nline 2\nand line 3, the last line', [new Cursor(2, 4), new Cursor(7, 10, true)]);
+	// let text = new Text('hello world\nline 2\nand line 3, the last line', [new Cursor(2, 4), new Cursor(10, 7)]);
 	//                       ^^_  _^^ [0, 2, 4, 5, 7, 8, 10]
 
 	document.addEventListener('keydown', async e => {
