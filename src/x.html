@@ -436,15 +436,18 @@
 
 	let lastMouseDown;
 	document.addEventListener('mousedown', e => {
-		if (Date.now() - lastMouseDown < 300)
+		let now = Date.now();
+		if (now - lastMouseDown < 300)
 			text.moveCursors(false, cursorMovement.GROW, false);
 		else {
 			let point = text.mouseXyToPoint(e.x, e.y);
-			text.setCursor(point);
+			if (e.shiftKey)
+				text.updateLastCursor(point);
+			else
+				text.setCursor(point);
 		}
-		lastMouseDown = Date.now();
+		lastMouseDown = now;
 		text.render();
-		// todo on shift, extend selection
 		// todo on alt, add or remove cursor
 	});
 
