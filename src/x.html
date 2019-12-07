@@ -3,6 +3,7 @@
 		outline: 1px solid;
 		overflow: auto;
 		font-size: 16px;
+		user-select: none;
 	}
 
 	span.selected {
@@ -26,6 +27,11 @@
 	class Cursor {
 		constructor(left = 0, right = left, reverse = false) {
 			this.set(left, right, reverse);
+		}
+
+		static createUnordered(start, end) {
+			// todo consider replacing constructor with this method
+			return start > end ? new Cursor(end, start, true) : new Cursor(start, end);
 		}
 
 		set(left = 0, right = left, reverse = false) {
@@ -111,6 +117,12 @@
 			return y >= 0 ? this.text.match(new RegExp(`(.*\\n?){0,${y}}.{0,${x}}`))[0].length : 0;
 		}
 
+		mouseXyToPoint(x, y) {
+			let {startContainer: textNode, startOffset: offset} = document.caretRangeFromPoint(x, y);
+			let point = textNode.parentNode['data-split'] + offset - (textNode.textContent.slice(0, offset + 1).match(/ \n/g) || []).length;
+			return clamp(point, 0, this.text.length);
+		}
+
 		// text editing methods
 
 		getTextAt(cursor) {
@@ -138,9 +150,10 @@
 			this.cursors.forEach(cursor => {
 				let delIndices = [cursor.left, cursor.right];
 				let i = right + 0;
-				if (allLine)
-					delIndices = delIndices.map((delIndex, i) => this.findNextLinePoint(delIndex, i));
-				else if (delIndices[0] !== delIndices[1])
+				if (allLine) {
+					delIndices[0] = this.findNextLinePoint(delIndices[0], false);
+					delIndices[1] = this.findNextLinePoint(delIndices[1], true) + 1;
+				} else if (delIndices[0] !== delIndices[1])
 					;
 				else if (line)
 					delIndices[i] = this.findNextLinePoint(delIndices[i], right);
@@ -171,11 +184,23 @@
 		// cursor methods
 
 		selectNone() {
-			this.cursors = [this.cursors[0]]; // todo considering collapsing cursor[0]
+			this.cursors = [new Cursor(this.cursors[0].end)];
 		}
 
 		selectAll() {
 			this.cursors = [new Cursor(0, this.text.length)];
+		}
+
+		setCursor(start, end) {
+			this.cursors = [Cursor.createUnordered(start, end)];
+		}
+
+		addCursor(start, end) {
+			this.cursors.push(Cursor.createUnordered(start, end));
+		}
+
+		updateLastCursor(end) {
+			this.cursors[this.cursors.length - 1].end = end;
 		}
 
 		moveCursors(right, vertical, word, line, select) {
@@ -271,6 +296,7 @@
 			splits.forEach((split, i, a) => {
 				let span = document.createElement('span');
 				span.textContent = paddedText.substring(split, a[i + 1]).replace(/\n/g, ' \n');
+				span['data-split'] = split;
 				if (this.cursors.some(cursor => cursor.includes(split)))
 					span.classList.add('selected');
 				else if (this.cursors.some(cursor => cursor.endsAt(split)))
@@ -305,6 +331,7 @@
 				text.moveCursors(true, false, e.ctrlKey, e.altKey, e.shiftKey);
 				break;
 			case 'ArrowUp':
+				// todo ctrl up selects more than 1 line after 2rd time
 				text.moveCursors(false, true, e.ctrlKey, e.altKey, e.shiftKey);
 				break;
 			case 'ArrowDown':
@@ -352,6 +379,28 @@
 		text.save();
 	});
 
+	let lastMouseDown;
+	document.addEventListener('mousedown', e => {
+		if (Date.now() - lastMouseDown < 300)
+			text.moveCursors(false, true, true, false, false);
+		else {
+			let point = text.mouseXyToPoint(e.x, e.y);
+			text.setCursor(point);
+		}
+		lastMouseDown = Date.now();
+		text.render();
+		// todo on shift, extend selection
+		// todo on alt, add or remove cursor
+	});
+
+	document.addEventListener('mousemove', e => {
+		if (!e.buttons)
+			return;
+		let point = text.mouseXyToPoint(e.x, e.y);
+		text.updateLastCursor(point);
+		text.render();
+	});
+
 	// c-g select next
 	// c-s-g remove last selection
 	// c-a-g select all
@@ -369,8 +418,6 @@
 
 	// move lines up down
 	// delete, duplicate, uppercase toggle
-
-	// mouse cursor
 
 	// undo redo
 	// prev/next edit location
@@ -391,4 +438,6 @@
 	// display line, column, selection numbers
 
 	// tabs and files
+
+	// ctrl alt left/right arrow & ctrl home/end to move to start or end of text. work with shift pressed too
 </script>
