@@ -96,10 +96,6 @@
 			this.right = this.reverse ? start : end;
 		}
 
-		endsAt(point) {
-			return point === this.end;
-		}
-
 		includes(point) {
 			return point >= this.left && point < this.right;
 		}
@@ -332,7 +328,7 @@
 				span['data-split'] = split;
 				if (this.cursors.some(cursor => cursor.includes(split)))
 					span.classList.add('selected');
-				else if (this.cursors.some(cursor => cursor.endsAt(split)))
+				else if (this.cursors.some(cursor => cursor.end === split))
 					span.classList.add('ends-at');
 				$('#text').appendChild(span);
 			});
