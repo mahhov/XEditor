@@ -28,6 +28,7 @@
 <script>
 	const $ = document.querySelector.bind(document);
 
+	const cleanText = text => text.replace(/\r\n?/g, '\n');
 	const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
 	const cursorMovement = {
@@ -153,7 +154,7 @@
 		}
 
 		insertTextAt(text, point) {
-			text = text.replace(/\r\n?/g, '\n');
+			text = cleanText(text);
 			this.text = this.text.substring(0, point) + text + this.text.substring(point);
 			this.cursors.forEach(cursorI => cursorI.shiftByInsertionOf(point, text.length));
 		}
@@ -161,9 +162,13 @@
 		// text editing methods
 
 		replaceSelections(text) {
-			this.cursors.forEach(cursor => {
+			this.replaceSelectionsMulti(this.cursors.map(() => text));
+		}
+
+		replaceSelectionsMulti(texts) {
+			this.cursors.forEach((cursor, i) => {
 				this.removeTextAt(cursor);
-				this.insertTextAt(text, cursor.end);
+				this.insertTextAt(texts[i] || '', cursor.end);
 			});
 			this.mergeCursors();
 		}
@@ -318,20 +323,29 @@
 		// clipboard methods
 
 		copy() {
-			// todo multi cursor copy, cut, paste
-			let text = this.getTextAt(this.cursors[0]);
-			navigator.clipboard.writeText(text);
+			// todo shift copy/cut/paste to reoroder cursors
+			if (this.cursors.every(cursor => cursor.empty))
+				this.moveCursors(false, cursorMovement.GROW, true); // todo grow to line, not word
+			let texts = this.cursors.map(cursor => this.getTextAt(cursor));
+			this.lastClipboard = texts;
+			navigator.clipboard.writeText(texts.join('\n'));
 		}
 
 		cut() {
-			let text = this.getTextAt(this.cursors[0]);
+			this.copy();
 			this.deleteSelections(false, false, false, false);
-			navigator.clipboard.writeText(text);
 		}
 
 		async paste() {
-			let text = await navigator.clipboard.readText();
-			this.replaceSelections(text);
+			let text = cleanText(await navigator.clipboard.readText());
+			let texts = text.split('\n');
+			if (this.cursors.length === 1 || texts.length === 1)
+				this.replaceSelections(text);
+			else {
+				if (this.lastClipboard && this.lastClipboard.length !== 1 && text === this.lastClipboard.join('\n'))
+					texts = this.lastClipboard;
+				this.replaceSelectionsMulti(texts);
+			}
 		}
 
 		// render methods
@@ -459,7 +473,7 @@
 	document.addEventListener('mousedown', e => {
 		let now = Date.now();
 		if (now - lastMouseDown < 300)
-			text.moveCursors(false, cursorMovement.GROW, false);
+			text.moveCursors(false, cursorMovement.GROW, false); // todo only grow last cursor
 		else {
 			let point = text.mouseXyToPoint(e.x, e.y);
 			if (e.ctrlKey)
@@ -487,7 +501,7 @@
 	// TODO
 
 	// copy, cut to work on line when nothing selected
-	// multiline copy ct paste
+	// multiline copy cut paste
 
 	// merge overlapping cursors
 	// remove cursors on click
