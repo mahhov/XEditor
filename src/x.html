@@ -203,11 +203,11 @@
 			this.cursors = [new Cursor(0, this.text.length)];
 		}
 
-		setCursor(start, end) {
+		setCursor(start, end = start) {
 			this.cursors = [new Cursor(start, end)];
 		}
 
-		addCursor(start, end) {
+		addCursor(start, end = start) {
 			this.cursors.push(new Cursor(start, end));
 		}
 
@@ -418,6 +418,8 @@
 				if (preventType = e.ctrlKey)
 					await text.paste();
 				break;
+			case ' ':
+				e.preventDefault();
 			default:
 				if (e.key.length !== 1)
 					console.log(e.key, e.ctrlKey, e.shiftKey, e.altKey);
