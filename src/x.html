@@ -99,6 +99,14 @@
 		includes(point) {
 			return point >= this.left && point < this.right;
 		}
+
+		// if this and cursor overlap, merge and return true
+		mergeWith(cursor) {
+			if (this.left > cursor.right || cursor.left > this.right)
+				return false;
+			this.set(Math.min(this.left, cursor.left), Math.max(this.right, cursor.right));
+			return true;
+		}
 	}
 
 	class Text {
@@ -133,7 +141,7 @@
 			return clamp(point, 0, this.text.length);
 		}
 
-		// text editing methods
+		// base text editing methods
 
 		getTextAt(cursor) {
 			return this.text.substring(cursor.left, cursor.right);
@@ -150,11 +158,14 @@
 			this.cursors.forEach(cursorI => cursorI.shiftByInsertionOf(point, text.length));
 		}
 
+		// text editing methods
+
 		replaceSelections(text) {
 			this.cursors.forEach(cursor => {
 				this.removeTextAt(cursor);
 				this.insertTextAt(text, cursor.end);
 			});
+			this.mergeCursors();
 		}
 
 		deleteSelections(right, word, line, allLine) {
@@ -175,6 +186,7 @@
 					delIndices[i] = clamp(delIndices[i] + right * 2 - 1, 0, this.text.length);
 				this.removeTextAt(new Cursor(delIndices[0], delIndices[1]));
 			});
+			this.mergeCursors();
 		}
 
 		toggleCommentSelections(inline) {
@@ -191,6 +203,7 @@
 						this.insertTextAt('// ', prefixPoint);
 				}
 			});
+			this.mergeCursors();
 		}
 
 		// cursor methods
@@ -209,10 +222,12 @@
 
 		addCursor(start, end = start) {
 			this.cursors.push(new Cursor(start, end));
+			this.mergeCursors();
 		}
 
 		updateLastCursor(end) {
 			this.cursors[this.cursors.length - 1].end = end;
+			this.mergeCursors();
 		}
 
 		moveCursors(right, movement, select) {
@@ -264,7 +279,16 @@
 				else
 					cursor.set(newEnd);
 			});
+			this.mergeCursors();
 		}
+
+		mergeCursors() {
+			this.cursors = this.cursors.filter((cursor, i) =>
+				!this.cursors.some((cursorNewer, j) =>
+					j > i && cursorNewer.mergeWith(cursor)));
+		}
+
+		// cursor find point methods
 
 		findNextSubWordPoint(point, right) {
 			return this.findNextPoint(point, right, /(([a-z]+|[A-Z]+|[0-9]+|(.)\3*)[^\S\n]*|\n)/);
@@ -301,7 +325,7 @@
 
 		cut() {
 			let text = this.getTextAt(this.cursors[0]);
-			this.removeTextAt(this.cursors[0]);
+			this.deleteSelections(false, false, false, false);
 			navigator.clipboard.writeText(text);
 		}
 
@@ -438,7 +462,9 @@
 			text.moveCursors(false, cursorMovement.GROW, false);
 		else {
 			let point = text.mouseXyToPoint(e.x, e.y);
-			if (e.shiftKey)
+			if (e.ctrlKey)
+				text.addCursor(point);
+			else if (e.shiftKey)
 				text.updateLastCursor(point);
 			else
 				text.setCursor(point);
