@@ -486,7 +486,7 @@
 	});
 
 	let lastMouseDown;
-	document.addEventListener('mousedown', e => {
+	$('#text').addEventListener('mousedown', e => {
 		let now = Date.now();
 		if (now - lastMouseDown < 300)
 			text.moveCursors(false, cursorMovement.GROW, false); // todo only grow last cursor
@@ -506,7 +506,7 @@
 		// todo on ctrl+alt, add (or remove) block cursor
 	});
 
-	document.addEventListener('mousemove', e => {
+	$('#text').addEventListener('mousemove', e => {
 		if (!e.buttons)
 			return;
 		let point = text.mouseXyToPoint(e.x, e.y);
