@@ -297,6 +297,10 @@
 					j > i && cursorNewer.mergeWith(cursor)));
 		}
 
+		reorderCursors() {
+			this.cursors.sort((c1, c2) => c1.left - c2.left);
+		}
+
 		// cursor find point methods
 
 		findNextSubWordPoint(point, right) {
@@ -327,7 +331,6 @@
 		// clipboard methods
 
 		copy() {
-			// todo shift copy/cut/paste to reorder cursors
 			if (this.cursors.every(cursor => cursor.empty))
 				this.moveCursors(false, cursorMovement.GROW_FULL, true);
 			let texts = this.cursors.map(cursor => this.getTextAt(cursor));
@@ -449,16 +452,25 @@
 				}
 				break;
 			case 'c':
-				if (preventType = e.ctrlKey)
+				if (preventType = e.ctrlKey || e.altKey) {
+					if (e.altKey)
+						text.reorderCursors();
 					text.copy();
+				}
 				break;
 			case 'x':
-				if (preventType = e.ctrlKey)
+				if (preventType = e.ctrlKey || e.altKey) {
+					if (e.altKey)
+						text.reorderCursors();
 					text.cut();
+				}
 				break;
 			case 'v':
-				if (preventType = e.ctrlKey)
+				if (preventType = e.ctrlKey || e.altKey) {
+					if (e.altKey)
+						text.reorderCursors();
 					await text.paste();
+				}
 				break;
 			case ' ':
 				e.preventDefault();
@@ -503,9 +515,6 @@
 	});
 
 	// TODO
-
-	// copy, cut to work on line when nothing selected
-	// multiline copy cut paste
 
 	// merge overlapping cursors
 	// remove cursors on click
@@ -561,14 +570,21 @@
 
 	// typing
 
-	// del/backspace
-	// c-del/backspace
+	// del/backspace -> char
+	// c-del/backspace -> word
+	// s-del/backspace -> line end
+	// a-del/backspace -> entire line
 
 	// c-a
 	// escape
 
 	// c-/
-	// c-c/x/v
+
+	// c-x/c/v -> copy, cut, paste.
+	// a-x/c/v -> copy, cut, paste with reordered cursors
+	// copy/cut entire lines if nothing selected.
+	// copy/cut/paste support multiline
+
 
 	// mouse drag select
 	// mouse single, double, triple click
