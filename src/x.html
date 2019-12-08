@@ -3,6 +3,12 @@
 		display: flex;
 	}
 
+	#numbers {
+		margin: 0 10px 0 0;
+		font-size: 16px;
+		user-select: none;
+	}
+
 	#text {
 		flex: 1;
 		margin: 0;
@@ -23,6 +29,7 @@
 	}
 </style>
 
+<pre id="numbers"></pre>
 <pre id="text"></pre>
 
 <script>
@@ -377,13 +384,12 @@
 					span.classList.add('ends-at');
 				$('#text').appendChild(span);
 			});
+			$('#numbers').textContent = '1\n' + (this.text.match(/\n/g) || []).map((_, i) => i + 2).join('\n');
 		}
 	}
 
 	let text = Text.restore();
 	text.render();
-	// let text = new Text('hello world\nline 2\nand line 3, the last line', [new Cursor(2, 4), new Cursor(10, 7)]);
-	//                       ^^_  _^^ [0, 2, 4, 5, 7, 8, 10]
 
 	document.addEventListener('keydown', async e => {
 		const homeEndArrowCursorMovement =
