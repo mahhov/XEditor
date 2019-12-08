@@ -39,6 +39,7 @@
 		LINE: 4,
 		TEXT: 5,
 		GROW: 6,
+		GROW_FULL: 7,
 	};
 
 	class Cursor {
@@ -272,8 +273,11 @@
 								newEnd = this.findNextLinePoint(cursor.right, true);
 							} else if (tempNewEnd > newEnd)
 								newEnd = tempNewEnd;
-							console.log(cursor.start, cursor.end, '->', newStart, newEnd)
 						}
+						break;
+					case cursorMovement.GROW_FULL:
+						newStart = this.findNextLinePoint(cursor.left, false);
+						newEnd = this.findNextLinePoint(cursor.right, true);
 						break;
 				}
 
@@ -323,9 +327,9 @@
 		// clipboard methods
 
 		copy() {
-			// todo shift copy/cut/paste to reoroder cursors
+			// todo shift copy/cut/paste to reorder cursors
 			if (this.cursors.every(cursor => cursor.empty))
-				this.moveCursors(false, cursorMovement.GROW, true); // todo grow to line, not word
+				this.moveCursors(false, cursorMovement.GROW_FULL, true);
 			let texts = this.cursors.map(cursor => this.getTextAt(cursor));
 			this.lastClipboard = texts;
 			navigator.clipboard.writeText(texts.join('\n'));
