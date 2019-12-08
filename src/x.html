@@ -162,6 +162,7 @@
 		}
 
 		deleteSelections(right, word, line, allLine) {
+			// todo migrate parameter to cursorMovement enum
 			this.cursors.forEach(cursor => {
 				let delIndices = [cursor.left, cursor.right];
 				let i = right + 0;
@@ -461,12 +462,21 @@
 
 	// TODO
 
+	// copy, cut to work on line when nothing selected
+	// multiline copy ct paste
+
 	// merge overlapping cursors
 	// remove cursors on click
+	// highlight occurences of selected text
+
+	// c-f find
+	// c-r replace
 
 	// c-g select next
-	// c-s-g remove last selection
+	// c-s-g remove last-next selection
 	// c-a-g select all
+	// a-g select prev
+	// a-s-g remove last-prev selection
 	// c-h goto next
 	// c-s-h goto previous
 
@@ -476,11 +486,11 @@
 
 	// tab to indent / unindent, ctrl tab to clone indentation form above line
 	// m matching paren
-
 	// on paren, add closing paren. wrap selected text
 
 	// move lines up down
 	// delete, duplicate, uppercase toggle
+	// c-s-up/down -> move line up/down
 
 	// undo redo
 	// prev/next edit location
@@ -488,24 +498,22 @@
 
 	// autocomplete
 
-	// arrows to not move cursor when have selection
-
 	// alt shift arrows to create cursors
 
 	// zoom in / out / default
 
-	// display line, column, selection numbers
+	// display line, column, selection numbers.
+	// goto line number
 
 	// tabs and files
 
-	// ctrl alt left/right arrow & ctrl home/end to move to start or end of text. work with shift pressed too
-
 	// home/end to toggle between to post-whitespace and pre-whitespace,
+	// arrows to not move cursor when have selection
 
 	// a-,/. -> prev / next edit location,
 	// c-,/. -> prev / next cursor location
 
-	// c-s-up/down -> move line up/down
+	// snapshots and diff comparisons
 
 	// DONE
 
