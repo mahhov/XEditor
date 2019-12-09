@@ -134,9 +134,8 @@
 		constructor(text = '') {
 			this.text = text;
 			this.cursors = [new Cursor()];
-			this.history = [];
-			this.historyIndex = -1;
-			this.commitText();
+			this.history = [{text, cursors: this.clonedCursors()}];
+			this.historyIndex = 0;
 		}
 
 		static restore() {
@@ -241,25 +240,30 @@
 
 		selectNone() {
 			this.cursors = [new Cursor(this.cursors[0].end)];
+			this.commitCursor();
 		}
 
 		selectAll() {
 			this.cursors = [new Cursor(0, this.text.length)];
+			this.commitCursor();
 		}
 
 		setCursor(start, end = start) {
 			this.cursors = [new Cursor(start, end)];
+			this.commitCursor();
 		}
 
 		addCursor(start, end = start) {
 			this.cursors.push(new Cursor(start, end));
 			this.mergeCursors();
+			this.commitCursor();
 
 		}
 
 		updateLastCursor(end) {
 			this.cursors[this.cursors.length - 1].end = end;
 			this.mergeCursors();
+			this.commitCursor();
 		}
 
 		moveCursors(right, movement, select) {
@@ -315,12 +319,7 @@
 					cursor.set(newEnd);
 			});
 			this.mergeCursors();
-		}
-
-		wordGrowCursorBoundaries(cursor) {
-			let start = this.findNextWordPoint(cursor.start + 1, false);
-			let end = this.findNextWordPoint(start, true, true);
-			return [start, end];
+			this.commitCursor();
 		}
 
 		mergeCursors() {
@@ -360,6 +359,12 @@
 			return point + (match.length + (point > this.text.length ? 1 : 0)) * (right ? 1 : -1);
 		}
 
+		wordGrowCursorBoundaries(cursor) {
+			let start = this.findNextWordPoint(cursor.start + 1, false);
+			let end = this.findNextWordPoint(start, true, true);
+			return [start, end];
+		}
+
 		// clipboard methods
 
 		copy() {
@@ -387,45 +392,51 @@
 			}
 		}
 
-		// history methods
-
-		// '', [''], 0
-		// 'a', ['', 'a'], 1
-		// 'ab', ['', 'a', 'ab'], 2
-		// 'a', ['', 'a', 'ab'], 1
-		// 'ac', ['', 'a', 'ac'], 2
-
-		clonedCursors() {
-			return this.cursors.map(cursor => cursor.clone);
+		clonedCursors(cursors = this.cursors) {
+			return cursors.map(cursor => cursor.clone);
 		}
 
 		commitText() {
-			// todo merge
-			this.history = this.history.slice(0, ++this.historyIndex);
-			this.history.push({
+			if (!this.history[this.historyIndex].text)
+				this.historyIndex++;
+			this.history = this.history.slice(0, this.historyIndex);
+			this.history[this.historyIndex] = {
 				text: this.text,
 				cursors: this.clonedCursors(),
-			});
+			};
 		}
 
 		commitCursor() {
-			// todo
-			// this.history.push({
-			// 	cursors: this.cursors.map(cursor => cursor.clone()),
-			// });
-			// this.historyIndex++;
+			this.history = this.history.slice(0, this.historyIndex + 1);
+			this.history[++this.historyIndex] = {cursors: this.clonedCursors()};
 		}
 
 		restoreHistory(index) {
-			({text: this.text, cursors: this.cursors} = this.history[index]);
-			this.cursors = this.clonedCursors();
+			this.text = this.history.slice(0, index + 1).reverse().find(({text}) => text !== undefined).text;
+			this.cursors = this.clonedCursors(this.history[index].cursors);
+		}
+
+		nextHistory(redo) {
+			return {index: this.historyIndex + redo * 2 - 1, textChanged: !this.history[this.historyIndex + redo] || this.history[this.historyIndex + redo].text};
 		}
 
 		undo(cursor, redo) {
-			if (redo && this.historyIndex < this.history.length - 1)
-				this.restoreHistory(++this.historyIndex);
-			else if (!redo && this.historyIndex > 0)
-				this.restoreHistory(--this.historyIndex);
+			let next = this.nextHistory(redo);
+			if (!this.history[next.index])
+				return;
+			if (!cursor) {
+				if (next.textChanged)
+					this.historyIndex = next.index;
+				else
+					do {
+						this.historyIndex = next.index;
+						next = this.nextHistory(redo)
+					} while (!next.textChanged);
+			} else if (!next.textChanged)
+				this.historyIndex = next.index;
+			else
+				return;
+			this.restoreHistory(this.historyIndex);
 		}
 
 		// render methods
@@ -642,9 +653,7 @@
 	// delete, duplicate, uppercase toggle
 	// c-s-up/down -> move line up/down
 
-	// undo redo
 	// prev/next edit location
-	// prev/next cursor location
 
 	// autocomplete
 
@@ -698,4 +707,9 @@
 	// up/down -> row
 	// c-home/end -> text start/end
 	// c-;/' -> sub word
+
+	// c-z -> udno
+	// c-s-z -> redo
+	// a-z or c-a-z -> undo cursor
+	// a-s-z or c-a-s-z -> redo cursor
 </script>
