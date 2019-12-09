@@ -248,8 +248,8 @@
 			this.commitCursor();
 		}
 
-		selectNextOccurrence(remove, reverse) {
-			// todo remove
+		selectNextOccurrence(reverse) {
+			// todo skip over existing cursors
 			// todo reverse
 			let cursor = this.lastCursor;
 			let text = this.getTextAt(cursor);
@@ -274,6 +274,11 @@
 		addCursor(start, end = start) {
 			this.cursors.push(new Cursor(start, end));
 			this.mergeCursors();
+			this.commitCursor();
+		}
+
+		removeLastCursor() {
+			this.cursors.pop();
 			this.commitCursor();
 		}
 
@@ -568,7 +573,10 @@
 				break;
 			case 'g':
 				if (e.ctrlKey) {
-					text.selectNextOccurrence(e.shiftKey, e.altKey);
+					if (e.shiftKey)
+						text.removeLastCursor();
+					else
+						text.selectNextOccurrence(e.altKey);
 					e.preventDefault();
 				}
 				break;
