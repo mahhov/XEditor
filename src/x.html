@@ -428,6 +428,9 @@
 			case 'Enter':
 				text.replaceSelections('\n');
 				break;
+			case 'Tab':
+				text.replaceSelections('\t');
+				break;
 			case 'Home':
 				text.moveCursors(false, homeEndArrowCursorMovement[modifierIndex], e.shiftKey);
 				e.preventDefault();
