@@ -236,7 +236,7 @@
 			this.commitText();
 		}
 
-		// cursor methods
+		// selection methods
 
 		selectNone() {
 			this.cursors = [new Cursor(this.cursors[0].end)];
@@ -248,6 +248,24 @@
 			this.commitCursor();
 		}
 
+		selectNextOccurrence(remove, reverse) {
+			// todo remove
+			// todo reverse
+			let cursor = this.lastCursor;
+			let text = this.getTextAt(cursor);
+			let next = this.text.indexOf(text, cursor.right);
+			if (next === -1)
+				next = this.text.indexOf(text);
+			if (next !== cursor.left)
+				this.addCursor(next, next + text.length);
+		}
+
+		// cursor methods
+
+		get lastCursor() {
+			return this.cursors[this.cursors.length - 1];
+		}
+
 		setCursor(start, end = start) {
 			this.cursors = [new Cursor(start, end)];
 			this.commitCursor();
@@ -257,11 +275,10 @@
 			this.cursors.push(new Cursor(start, end));
 			this.mergeCursors();
 			this.commitCursor();
-
 		}
 
 		updateLastCursor(end) {
-			this.cursors[this.cursors.length - 1].end = end;
+			this.lastCursor.end = end;
 			this.mergeCursors();
 			this.commitCursor();
 		}
@@ -392,6 +409,8 @@
 			}
 		}
 
+		// history methods
+
 		clonedCursors(cursors = this.cursors) {
 			return cursors.map(cursor => cursor.clone);
 		}
@@ -471,7 +490,7 @@
 				else if (markedSplits.some(([markedSplit, length]) => split >= markedSplit && split < markedSplit + length))
 					span.classList.add('marked');
 				$('#text').appendChild(span);
-				if (split === this.cursors[this.cursors.length - 1].end)
+				if (split === this.lastCursor.end)
 					span.scrollIntoView({block: "nearest"});
 			});
 			$('#numbers').textContent = '1\n' + (this.text.match(/\n/g) || []).map((_, i) => i + 2).join('\n');
@@ -543,6 +562,18 @@
 			case '?':
 				if (e.ctrlKey)
 					text.toggleCommentSelections(e.shiftKey);
+				break;
+			case 'f':
+				// todo
+				break;
+			case 'g':
+				if (e.ctrlKey) {
+					text.selectNextOccurrence(e.shiftKey, e.altKey);
+					e.preventDefault();
+				}
+				break;
+			case 'h':
+				// todo
 				break;
 			case 'escape':
 				text.selectNone();
