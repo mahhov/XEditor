@@ -189,7 +189,7 @@
 
 		replaceSelectionsMulti(texts) {
 			this.cursors.forEach((cursor, i) => {
-				this.removeTextAt(cursor);
+				this.removeTextAt(cursor.clone);
 				this.insertTextAt(texts[i] || '', cursor.end);
 			});
 			this.mergeCursors();
@@ -253,7 +253,7 @@
 			// todo reverse
 			let cursor = this.lastCursor;
 			if (cursor.empty)
-				// todo grow without whitespace
+			// todo grow without whitespace
 				return this.replaceLastCursor(...this.wordGrowCursorBoundaries(cursor));
 			let text = this.getTextAt(cursor);
 			let next = this.text.indexOf(text, cursor.right);
@@ -676,8 +676,6 @@
 	// TODO
 
 	// highlight selected line
-
-	// bug with positions when replacing text during multi cursor
 
 	// remove cursors on click
 
