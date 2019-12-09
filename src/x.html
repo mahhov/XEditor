@@ -131,9 +131,12 @@
 	}
 
 	class Text {
-		constructor(text = '', cursors = [new Cursor()]) {
+		constructor(text = '') {
 			this.text = text;
-			this.cursors = cursors;
+			this.cursors = [new Cursor()];
+			this.history = [];
+			this.historyIndex = -1;
+			this.commitText();
 		}
 
 		static restore() {
@@ -191,6 +194,7 @@
 				this.insertTextAt(texts[i] || '', cursor.end);
 			});
 			this.mergeCursors();
+			this.commitText();
 		}
 
 		deleteSelections(right, word, line, allLine) {
@@ -212,6 +216,7 @@
 				this.removeTextAt(new Cursor(delIndices[0], delIndices[1]));
 			});
 			this.mergeCursors();
+			this.commitText();
 		}
 
 		toggleCommentSelections(inline) {
@@ -229,6 +234,7 @@
 				}
 			});
 			this.mergeCursors();
+			this.commitText();
 		}
 
 		// cursor methods
@@ -248,6 +254,7 @@
 		addCursor(start, end = start) {
 			this.cursors.push(new Cursor(start, end));
 			this.mergeCursors();
+
 		}
 
 		updateLastCursor(end) {
@@ -378,6 +385,47 @@
 					texts = this.lastClipboard;
 				this.replaceSelectionsMulti(texts);
 			}
+		}
+
+		// history methods
+
+		// '', [''], 0
+		// 'a', ['', 'a'], 1
+		// 'ab', ['', 'a', 'ab'], 2
+		// 'a', ['', 'a', 'ab'], 1
+		// 'ac', ['', 'a', 'ac'], 2
+
+		clonedCursors() {
+			return this.cursors.map(cursor => cursor.clone);
+		}
+
+		commitText() {
+			// todo merge
+			this.history = this.history.slice(0, ++this.historyIndex);
+			this.history.push({
+				text: this.text,
+				cursors: this.clonedCursors(),
+			});
+		}
+
+		commitCursor() {
+			// todo
+			// this.history.push({
+			// 	cursors: this.cursors.map(cursor => cursor.clone()),
+			// });
+			// this.historyIndex++;
+		}
+
+		restoreHistory(index) {
+			({text: this.text, cursors: this.cursors} = this.history[index]);
+			this.cursors = this.clonedCursors();
+		}
+
+		undo(cursor, redo) {
+			if (redo && this.historyIndex < this.history.length - 1)
+				this.restoreHistory(++this.historyIndex);
+			else if (!redo && this.historyIndex > 0)
+				this.restoreHistory(--this.historyIndex);
 		}
 
 		// render methods
@@ -517,6 +565,10 @@
 					await text.paste();
 				}
 				break;
+			case 'z':
+			case 'Z':
+				if (e.ctrlKey || e.altKey)
+					text.undo(e.altKey, e.shiftKey);
 			case ' ':
 				e.preventDefault();
 			default:
