@@ -462,10 +462,12 @@
 				e.preventDefault();
 				break;
 			case ';':
+			case ':':
 				if (e.ctrlKey)
 					text.moveCursors(false, cursorMovement.SUB_WORD, e.shiftKey);
 				break;
 			case "'":
+			case '"':
 				if (e.ctrlKey)
 					text.moveCursors(true, cursorMovement.SUB_WORD, e.shiftKey);
 				break;
@@ -476,6 +478,7 @@
 				text.deleteSelections(false, e.ctrlKey, e.shiftKey, e.altKey);
 				break;
 			case '/':
+			case '?':
 				if (e.ctrlKey)
 					text.toggleCommentSelections(e.shiftKey);
 				break;
@@ -483,12 +486,14 @@
 				text.selectNone();
 				break;
 			case 'a':
+			case 'A':
 				if (e.ctrlKey) {
 					text.selectAll();
 					e.preventDefault();
 				}
 				break;
 			case 'c':
+			case 'C':
 				if (e.ctrlKey || e.altKey) {
 					// todo, reorder by default, alt key to not reorder, and preserve original cursor ordering
 					if (e.altKey)
@@ -497,6 +502,7 @@
 				}
 				break;
 			case 'x':
+			case 'X':
 				if (e.ctrlKey || e.altKey) {
 					if (e.altKey)
 						text.reorderCursors();
@@ -504,6 +510,7 @@
 				}
 				break;
 			case 'v':
+			case 'V':
 				if (e.ctrlKey || e.altKey) {
 					if (e.altKey)
 						text.reorderCursors();
