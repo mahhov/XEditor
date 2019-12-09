@@ -2,12 +2,12 @@
   "name": "XEditor",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "mkdir -p docs && cp src/index.html docs/index.html",
+    "buildUnused": "mkdir -p docs && cp src/index.html docs/index.html && browserify --debug --detect-globals false --no-builtins src/main.js -o docs/main.js"
   },
   "keywords": [],
-  "author": "",
+  "author": "mahhov",
   "license": "ISC",
   "dependencies": {
     "xx-element": "^1.4.0"
