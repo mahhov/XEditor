@@ -471,6 +471,8 @@
 				else if (markedSplits.some(([markedSplit, length]) => split >= markedSplit && split < markedSplit + length))
 					span.classList.add('marked');
 				$('#text').appendChild(span);
+				if (split === this.cursors[this.cursors.length - 1].end)
+					span.scrollIntoView({block: "nearest"});
 			});
 			$('#numbers').textContent = '1\n' + (this.text.match(/\n/g) || []).map((_, i) => i + 2).join('\n');
 		}
@@ -627,8 +629,6 @@
 	});
 
 	// TODO
-
-	// scroll to on cursor change
 
 	// remove cursors on click
 
