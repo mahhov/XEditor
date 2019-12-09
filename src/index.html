@@ -204,7 +204,7 @@
 				if (allLine) {
 					delIndices[0] = this.findNextLinePoint(delIndices[0], false);
 					delIndices[1] = this.findNextLinePoint(delIndices[1], true) + 1;
-				} else if (delIndices[0] !== delIndices[1])
+				} else if (!cursor.empty)
 					;
 				else if (line)
 					delIndices[i] = this.findNextLinePoint(delIndices[i], right);
@@ -306,7 +306,10 @@
 
 				switch (movement) {
 					case cursorMovement.CHAR:
-						newEnd = clamp(newEnd + d, 0, this.text.length);
+						if (cursor.empty)
+							newEnd = clamp(newEnd + d, 0, this.text.length);
+						else
+							newEnd = right ? cursor.right : cursor.left;
 						break;
 					case cursorMovement.ROW:
 						let {x, y} = this.pointToXY(newEnd);
