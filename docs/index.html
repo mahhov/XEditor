@@ -236,7 +236,7 @@
 			this.commitText();
 		}
 
-		// cursor methods
+		// selection methods
 
 		selectNone() {
 			this.cursors = [new Cursor(this.cursors[0].end)];
@@ -248,6 +248,26 @@
 			this.commitCursor();
 		}
 
+		selectNextOccurrence(reverse) {
+			// todo skip over existing cursors
+			// todo reverse
+			let cursor = this.lastCursor;
+			if (cursor.empty)
+				return this.replaceLastCursor(...this.wordGrowCursorBoundaries(cursor));
+			let text = this.getTextAt(cursor);
+			let next = this.text.indexOf(text, cursor.right);
+			if (next === -1)
+				next = this.text.indexOf(text);
+			if (next !== cursor.left)
+				this.addCursor(next, next + text.length);
+		}
+
+		// cursor methods
+
+		get lastCursor() {
+			return this.cursors[this.cursors.length - 1];
+		}
+
 		setCursor(start, end = start) {
 			this.cursors = [new Cursor(start, end)];
 			this.commitCursor();
@@ -257,11 +277,22 @@
 			this.cursors.push(new Cursor(start, end));
 			this.mergeCursors();
 			this.commitCursor();
+		}
 
+		removeLastCursor() {
+			this.cursors.pop();
+			this.commitCursor();
 		}
 
 		updateLastCursor(end) {
-			this.cursors[this.cursors.length - 1].end = end;
+			this.lastCursor.end = end;
+			this.mergeCursors();
+			this.commitCursor();
+		}
+
+		replaceLastCursor(start, end = start) {
+			this.cursors.pop();
+			this.cursors.push(new Cursor(start, end));
 			this.mergeCursors();
 			this.commitCursor();
 		}
@@ -392,6 +423,8 @@
 			}
 		}
 
+		// history methods
+
 		clonedCursors(cursors = this.cursors) {
 			return cursors.map(cursor => cursor.clone);
 		}
@@ -471,6 +504,8 @@
 				else if (markedSplits.some(([markedSplit, length]) => split >= markedSplit && split < markedSplit + length))
 					span.classList.add('marked');
 				$('#text').appendChild(span);
+				if (split === this.lastCursor.end)
+					span.scrollIntoView({block: "nearest"});
 			});
 			$('#numbers').textContent = '1\n' + (this.text.match(/\n/g) || []).map((_, i) => i + 2).join('\n');
 		}
@@ -489,34 +524,35 @@
 
 		let modifierIndex = e.ctrlKey + e.altKey * 2;
 
-		switch (e.key) {
-			case 'Enter':
+		switch (e.key.toLowerCase()) {
+			case 'enter':
 				text.replaceSelections('\n');
 				break;
-			case 'Tab':
+			case 'tab':
 				text.replaceSelections('\t');
+				e.preventDefault();
 				break;
-			case 'Home':
+			case 'home':
 				text.moveCursors(false, homeEndArrowCursorMovement[modifierIndex], e.shiftKey);
 				e.preventDefault();
 				break;
-			case 'End':
+			case 'end':
 				text.moveCursors(true, homeEndArrowCursorMovement[modifierIndex], e.shiftKey);
 				e.preventDefault();
 				break;
-			case 'ArrowLeft':
+			case 'arrowleft':
 				text.moveCursors(false, horizArrowCursorMovement[modifierIndex], e.shiftKey);
 				e.preventDefault();
 				break;
-			case 'ArrowRight':
+			case 'arrowright':
 				text.moveCursors(true, horizArrowCursorMovement[modifierIndex], e.shiftKey);
 				e.preventDefault();
 				break;
-			case 'ArrowUp':
+			case 'arrowup':
 				e.preventDefault();
 				text.moveCursors(false, vertArrowCursorMovement[modifierIndex], e.shiftKey);
 				break;
-			case 'ArrowDown':
+			case 'arrowdown':
 				text.moveCursors(true, vertArrowCursorMovement[modifierIndex], e.shiftKey);
 				e.preventDefault();
 				break;
@@ -530,10 +566,10 @@
 				if (e.ctrlKey)
 					text.moveCursors(true, cursorMovement.SUB_WORD, e.shiftKey);
 				break;
-			case 'Delete':
+			case 'delete':
 				text.deleteSelections(true, e.ctrlKey, e.shiftKey, e.altKey);
 				break;
-			case 'Backspace':
+			case 'backspace':
 				text.deleteSelections(false, e.ctrlKey, e.shiftKey, e.altKey);
 				break;
 			case '/':
@@ -541,18 +577,31 @@
 				if (e.ctrlKey)
 					text.toggleCommentSelections(e.shiftKey);
 				break;
-			case 'Escape':
+			case 'f':
+				// todo
+				break;
+			case 'g':
+				if (e.ctrlKey) {
+					if (e.shiftKey)
+						text.removeLastCursor();
+					else
+						text.selectNextOccurrence(e.altKey);
+					e.preventDefault();
+				}
+				break;
+			case 'h':
+				// todo
+				break;
+			case 'escape':
 				text.selectNone();
 				break;
 			case 'a':
-			case 'A':
 				if (e.ctrlKey) {
 					text.selectAll();
 					e.preventDefault();
 				}
 				break;
 			case 'c':
-			case 'C':
 				if (e.ctrlKey || e.altKey) {
 					// todo, reorder by default, alt key to not reorder, and preserve original cursor ordering
 					if (e.altKey)
@@ -561,7 +610,6 @@
 				}
 				break;
 			case 'x':
-			case 'X':
 				if (e.ctrlKey || e.altKey) {
 					if (e.altKey)
 						text.reorderCursors();
@@ -569,7 +617,6 @@
 				}
 				break;
 			case 'v':
-			case 'V':
 				if (e.ctrlKey || e.altKey) {
 					if (e.altKey)
 						text.reorderCursors();
@@ -577,7 +624,6 @@
 				}
 				break;
 			case 'z':
-			case 'Z':
 				if (e.ctrlKey || e.altKey)
 					text.undo(e.altKey, e.shiftKey);
 			case ' ':
@@ -627,8 +673,6 @@
 	});
 
 	// TODO
-
-	// scroll to on cursor change
 
 	// remove cursors on click
 
