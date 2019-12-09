@@ -512,19 +512,24 @@
 		// todo on ctrl+alt, add (or remove) block cursor
 	});
 
+	let lastMousePoint;
 	$('#text').addEventListener('mousemove', e => {
 		if (!e.buttons)
 			return;
 		let point = text.mouseXyToPoint(e.x, e.y);
+		if (point === lastMousePoint)
+			return;
+		lastMousePoint = point;
 		text.updateLastCursor(point);
 		text.render();
 	});
 
 	// TODO
 
-	// merge overlapping cursors
+	// scroll to on cursor change
+
 	// remove cursors on click
-	// highlight occurences of selected text
+	// highlight occurrences of selected text
 
 	// c-f find
 	// c-r replace
@@ -575,6 +580,10 @@
 	// DONE
 
 	// typing
+	// multi selection
+	// merging overlapping cursors
+	// mouse drag select
+	// mouse single, double, triple click
 
 	// del/backspace -> char
 	// c-del/backspace -> word
@@ -590,10 +599,6 @@
 	// a-x/c/v -> copy, cut, paste with reordered cursors
 	// copy/cut entire lines if nothing selected.
 	// copy/cut/paste support multiline
-
-
-	// mouse drag select
-	// mouse single, double, triple click
 
 	// left/right -> char
 	// c-left/right -> word left/right
