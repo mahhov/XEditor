@@ -252,6 +252,8 @@
 			// todo skip over existing cursors
 			// todo reverse
 			let cursor = this.lastCursor;
+			if (cursor.empty)
+				return this.replaceLastCursor(...this.wordGrowCursorBoundaries(cursor));
 			let text = this.getTextAt(cursor);
 			let next = this.text.indexOf(text, cursor.right);
 			if (next === -1)
@@ -284,6 +286,13 @@
 
 		updateLastCursor(end) {
 			this.lastCursor.end = end;
+			this.mergeCursors();
+			this.commitCursor();
+		}
+
+		replaceLastCursor(start, end = start) {
+			this.cursors.pop();
+			this.cursors.push(new Cursor(start, end));
 			this.mergeCursors();
 			this.commitCursor();
 		}
