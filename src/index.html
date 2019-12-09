@@ -123,7 +123,7 @@
 
 		// if this and cursor overlap, merge and return true
 		mergeWith(cursor) {
-			if (this.left > cursor.right || cursor.left > this.right)
+			if (this.left >= cursor.right || cursor.left >= this.right)
 				return false;
 			this.set(Math.min(this.left, cursor.left), Math.max(this.right, cursor.right));
 			return true;
@@ -253,6 +253,7 @@
 			// todo reverse
 			let cursor = this.lastCursor;
 			if (cursor.empty)
+				// todo grow without whitespace
 				return this.replaceLastCursor(...this.wordGrowCursorBoundaries(cursor));
 			let text = this.getTextAt(cursor);
 			let next = this.text.indexOf(text, cursor.right);
@@ -673,6 +674,10 @@
 	});
 
 	// TODO
+
+	// highlight selected line
+
+	// bug with positions when replacing text during multi cursor
 
 	// remove cursors on click
 
