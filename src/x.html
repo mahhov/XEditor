@@ -285,8 +285,8 @@
 						if (right)
 							newEnd = cursor.start;
 						else {
-							newStart = this.findNextWordPoint(cursor.start + 1, false);
-							let tempNewEnd = this.findNextWordPoint(newStart, true, true);
+							let tempNewEnd;
+							[newStart, tempNewEnd] = this.wordGrowCursorBoundaries(cursor);
 							if (tempNewEnd === newEnd && newStart === cursor.left) {
 								newStart = this.findNextLinePoint(cursor.left, false);
 								newEnd = this.findNextLinePoint(cursor.right, true);
@@ -308,6 +308,12 @@
 					cursor.set(newEnd);
 			});
 			this.mergeCursors();
+		}
+
+		wordGrowCursorBoundaries(cursor) {
+			let start = this.findNextWordPoint(cursor.start + 1, false);
+			let end = this.findNextWordPoint(start, true, true);
+			return [start, end];
 		}
 
 		mergeCursors() {
@@ -381,8 +387,8 @@
 				$('#text').removeChild($('#text').firstChild);
 			let cursorSplits = this.cursors.flatMap(cursor => [cursor.left, cursor.right, cursor.end + 1]);
 			let markedSplits = this.cursors
-				.map(cursor => this.getTextAt(cursor).trim())
-				.filter(text => text.match(/\S/))
+				.map(cursor => this.getTextAt(cursor).trim() || this.getTextAt(new Cursor(...this.wordGrowCursorBoundaries(cursor))).trim())
+				.filter(text => text)
 				.flatMap(text => {
 					let splits = [], i;
 					while ((i = this.text.indexOf(text, i + 1)) >= 0)
@@ -566,8 +572,6 @@
 	// a-s-g remove last-prev selection
 	// c-h goto next
 	// c-s-h goto previous
-
-	// goto text
 
 	// search by regex and whole word and case sensitive
 
