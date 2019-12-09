@@ -423,7 +423,6 @@
 			[cursorMovement.ROW, cursorMovement.GROW, cursorMovement.ROW, cursorMovement.GROW];
 
 		let modifierIndex = e.ctrlKey + e.altKey * 2;
-		let preventType;
 
 		switch (e.key) {
 			case 'Enter':
@@ -454,11 +453,11 @@
 				e.preventDefault();
 				break;
 			case ';':
-				if (preventType = e.ctrlKey)
+				if (e.ctrlKey)
 					text.moveCursors(false, cursorMovement.SUB_WORD, e.shiftKey);
 				break;
 			case "'":
-				if (preventType = e.ctrlKey)
+				if (e.ctrlKey)
 					text.moveCursors(true, cursorMovement.SUB_WORD, e.shiftKey);
 				break;
 			case 'Delete':
@@ -468,34 +467,35 @@
 				text.deleteSelections(false, e.ctrlKey, e.shiftKey, e.altKey);
 				break;
 			case '/':
-				if (preventType = e.ctrlKey)
+				if (e.ctrlKey)
 					text.toggleCommentSelections(e.shiftKey);
 				break;
 			case 'Escape':
 				text.selectNone();
 				break;
 			case 'a':
-				if (preventType = e.ctrlKey) {
+				if (e.ctrlKey) {
 					text.selectAll();
 					e.preventDefault();
 				}
 				break;
 			case 'c':
-				if (preventType = e.ctrlKey || e.altKey) {
+				if (e.ctrlKey || e.altKey) {
+					// todo, reorder by default, alt key to not reorder, and preserve original cursor ordering
 					if (e.altKey)
 						text.reorderCursors();
 					text.copy();
 				}
 				break;
 			case 'x':
-				if (preventType = e.ctrlKey || e.altKey) {
+				if (e.ctrlKey || e.altKey) {
 					if (e.altKey)
 						text.reorderCursors();
 					text.cut();
 				}
 				break;
 			case 'v':
-				if (preventType = e.ctrlKey || e.altKey) {
+				if (e.ctrlKey || e.altKey) {
 					if (e.altKey)
 						text.reorderCursors();
 					await text.paste();
@@ -507,7 +507,7 @@
 				if (e.key.length !== 1)
 					console.log(e.key, e.ctrlKey, e.shiftKey, e.altKey);
 		}
-		if (e.key.length === 1 && !preventType)
+		if (e.key.length === 1 && !e.ctrlKey && !e.altKey)
 			text.replaceSelections(e.key);
 
 		text.render();
