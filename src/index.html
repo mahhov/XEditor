@@ -491,34 +491,35 @@
 
 		let modifierIndex = e.ctrlKey + e.altKey * 2;
 
-		switch (e.key) {
-			case 'Enter':
+		switch (e.key.toLowerCase()) {
+			case 'enter':
 				text.replaceSelections('\n');
 				break;
-			case 'Tab':
+			case 'tab':
 				text.replaceSelections('\t');
+				e.preventDefault();
 				break;
-			case 'Home':
+			case 'home':
 				text.moveCursors(false, homeEndArrowCursorMovement[modifierIndex], e.shiftKey);
 				e.preventDefault();
 				break;
-			case 'End':
+			case 'end':
 				text.moveCursors(true, homeEndArrowCursorMovement[modifierIndex], e.shiftKey);
 				e.preventDefault();
 				break;
-			case 'ArrowLeft':
+			case 'arrowleft':
 				text.moveCursors(false, horizArrowCursorMovement[modifierIndex], e.shiftKey);
 				e.preventDefault();
 				break;
-			case 'ArrowRight':
+			case 'arrowright':
 				text.moveCursors(true, horizArrowCursorMovement[modifierIndex], e.shiftKey);
 				e.preventDefault();
 				break;
-			case 'ArrowUp':
+			case 'arrowup':
 				e.preventDefault();
 				text.moveCursors(false, vertArrowCursorMovement[modifierIndex], e.shiftKey);
 				break;
-			case 'ArrowDown':
+			case 'arrowdown':
 				text.moveCursors(true, vertArrowCursorMovement[modifierIndex], e.shiftKey);
 				e.preventDefault();
 				break;
@@ -532,10 +533,10 @@
 				if (e.ctrlKey)
 					text.moveCursors(true, cursorMovement.SUB_WORD, e.shiftKey);
 				break;
-			case 'Delete':
+			case 'delete':
 				text.deleteSelections(true, e.ctrlKey, e.shiftKey, e.altKey);
 				break;
-			case 'Backspace':
+			case 'backspace':
 				text.deleteSelections(false, e.ctrlKey, e.shiftKey, e.altKey);
 				break;
 			case '/':
@@ -543,18 +544,16 @@
 				if (e.ctrlKey)
 					text.toggleCommentSelections(e.shiftKey);
 				break;
-			case 'Escape':
+			case 'escape':
 				text.selectNone();
 				break;
 			case 'a':
-			case 'A':
 				if (e.ctrlKey) {
 					text.selectAll();
 					e.preventDefault();
 				}
 				break;
 			case 'c':
-			case 'C':
 				if (e.ctrlKey || e.altKey) {
 					// todo, reorder by default, alt key to not reorder, and preserve original cursor ordering
 					if (e.altKey)
@@ -563,7 +562,6 @@
 				}
 				break;
 			case 'x':
-			case 'X':
 				if (e.ctrlKey || e.altKey) {
 					if (e.altKey)
 						text.reorderCursors();
@@ -571,7 +569,6 @@
 				}
 				break;
 			case 'v':
-			case 'V':
 				if (e.ctrlKey || e.altKey) {
 					if (e.altKey)
 						text.reorderCursors();
@@ -579,7 +576,6 @@
 				}
 				break;
 			case 'z':
-			case 'Z':
 				if (e.ctrlKey || e.altKey)
 					text.undo(e.altKey, e.shiftKey);
 			case ' ':
