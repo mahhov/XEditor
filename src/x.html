@@ -1,21 +1,26 @@
 <style>
-	body {
+	#container {
 		display: flex;
+		height: 100%;
+		overflow-y: auto;
+		user-select: none;
+		font-size: 16px;
+		align-items: flex-start;
+		outline: 1px solid;
 	}
 
 	#numbers {
 		margin: 0 10px 0 0;
-		font-size: 16px;
-		user-select: none;
+		position: sticky;
+		left: 0;
+		background: white;
+		border-right: 1px solid;
 	}
 
 	#text {
 		flex: 1;
 		margin: 0;
-		outline: 1px solid;
-		overflow: auto;
-		font-size: 16px;
-		user-select: none;
+		align-self: auto;
 	}
 
 	span.selected {
@@ -34,8 +39,10 @@
 	}
 </style>
 
-<pre id="numbers"></pre>
-<pre id="text"></pre>
+<div id="container">
+	<pre id="numbers"></pre>
+	<pre id="text"></pre>
+</div>
 
 <script>
 	const $ = document.querySelector.bind(document);
