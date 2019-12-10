@@ -323,7 +323,7 @@
 
 				switch (movement) {
 					case cursorMovement.CHAR:
-						if (cursor.empty)
+						if (cursor.empty || select)
 							newEnd = clamp(newEnd + d, 0, this.text.length);
 						else
 							newEnd = right ? cursor.right : cursor.left;
