@@ -280,6 +280,8 @@
 		}
 
 		removeLastCursor() {
+			if (this.cursors.length === 1)
+				return;
 			this.cursors.pop();
 			this.commitCursor();
 		}
