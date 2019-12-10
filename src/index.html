@@ -238,6 +238,13 @@
 
 		// selection methods
 
+		isSelected(left, right = left + 1) {
+			for (let i = left; i < right; i++)
+				if (!this.cursors.some(cursor => cursor.includes(i)))
+					return false;
+			return true;
+		}
+
 		selectNone() {
 			this.cursors = [new Cursor(this.cursors[0].end)];
 			this.commitCursor();
@@ -248,17 +255,13 @@
 			this.commitCursor();
 		}
 
-		selectNextOccurrence(reverse) {
-			// todo skip over existing cursors
-			// todo reverse
+		selectNextOccurrence(right) {
 			let cursor = this.lastCursor;
 			if (cursor.empty)
 				return this.replaceLastCursor(...this.wordGrowCursorBoundaries(cursor, false));
 			let text = this.getTextAt(cursor);
-			let next = this.text.indexOf(text, cursor.right);
-			if (next === -1)
-				next = this.text.indexOf(text);
-			if (next !== cursor.left)
+			let next = this.findNextUnselectedOccurrenceWrapPoint(text, cursor.left, right);
+			if (next !== -1)
 				this.addCursor(next, next + text.length);
 		}
 
@@ -396,6 +399,22 @@
 			return point + (match.length + (point > this.text.length ? 1 : 0)) * (right ? 1 : -1);
 		}
 
+		findNextUnselectedOccurrenceWrapPoint(text, point, right) {
+			let next = point;
+			while (true) {
+				next = right ? this.text.indexOf(text, next + 1) : this.text.lastIndexOf(text, next - 1);
+				if (next === -1) {
+					if (!right)
+						next = this.text.length;
+					continue;
+				}
+				if (next === point)
+					return -1;
+				else if (!this.isSelected(next, next + text.length))
+					return next;
+			}
+		}
+
 		wordGrowCursorBoundaries(cursor, trailingWhitespace = true) {
 			let start = this.findNextWordPoint(cursor.start + 1, false, trailingWhitespace);
 			let end = this.findNextWordPoint(start, true, true, trailingWhitespace);
@@ -503,7 +522,7 @@
 				let span = document.createElement('span');
 				span.textContent = paddedText.substring(split, a[i + 1]).replace(/\n/g, ' \n');
 				span['data-split'] = split;
-				if (this.cursors.some(cursor => cursor.includes(split)))
+				if (this.isSelected(split))
 					span.classList.add('selected');
 				else if (this.cursors.some(cursor => cursor.end === split))
 					span.classList.add('ends-at');
@@ -587,11 +606,11 @@
 				// todo
 				break;
 			case 'g':
-				if (e.ctrlKey) {
+				if (e.ctrlKey || e.altKey) {
 					if (e.shiftKey)
 						text.removeLastCursor();
 					else
-						text.selectNextOccurrence(e.altKey);
+						text.selectNextOccurrence(!e.altKey);
 					e.preventDefault();
 				}
 				break;
@@ -679,6 +698,8 @@
 	});
 
 	// TODO
+
+	// alt + up/down or page up/pgae down to move up 40 lines
 
 	// highlight selected line
 
