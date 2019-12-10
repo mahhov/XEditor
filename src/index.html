@@ -265,6 +265,13 @@
 				this.addCursor(next, next + text.length);
 		}
 
+		selectAllOccurrences() {
+			let cursor = this.lastCursor.empty ? new Cursor(...this.wordGrowCursorBoundaries(cursor, false)) : this.lastCursor;
+			let text = this.getTextAt(cursor);
+			let indices = this.findAllOccurrencePoints(text, cursor.left);
+			this.addCursors(indices, text.length);
+		}
+
 		// cursor methods
 
 		get lastCursor() {
@@ -278,6 +285,12 @@
 
 		addCursor(start, end = start) {
 			this.cursors.push(new Cursor(start, end));
+			this.mergeCursors();
+			this.commitCursor();
+		}
+
+		addCursors(starts, length) {
+			this.cursors = [...this.cursors, ...starts.map(start => new Cursor(start, start + length))];
 			this.mergeCursors();
 			this.commitCursor();
 		}
@@ -412,6 +425,19 @@
 					return -1;
 				else if (!this.isSelected(next, next + text.length))
 					return next;
+			}
+		}
+
+		findAllOccurrencePoints(text, point = -1) {
+			let indices = [];
+			let next = point;
+			while (true) {
+				next = this.text.indexOf(text, next + 1);
+				if (next === -1)
+					continue;
+				if (next === point)
+					return indices;
+				indices.push(next);
 			}
 		}
 
@@ -609,6 +635,8 @@
 				if (e.ctrlKey || e.altKey) {
 					if (e.shiftKey)
 						text.removeLastCursor();
+					else if (e.ctrlKey && e.altKey)
+						text.selectAllOccurrences();
 					else
 						text.selectNextOccurrence(!e.altKey);
 					e.preventDefault();
