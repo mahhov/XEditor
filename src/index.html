@@ -255,13 +255,17 @@
 			this.commitCursor();
 		}
 
-		selectNextOccurrence(right) {
+		selectNextOccurrence(right, move = false) {
 			let cursor = this.lastCursor;
 			if (cursor.empty)
 				return this.replaceLastCursor(...this.wordGrowCursorBoundaries(cursor, false));
 			let text = this.getTextAt(cursor);
 			let next = this.findNextUnselectedOccurrenceWrapPoint(text, cursor.left, right);
-			if (next !== -1)
+			if (next === -1)
+				return;
+			if (move)
+				this.replaceLastCursor(next, next + text.length);
+			else
 				this.addCursor(next, next + text.length);
 		}
 
@@ -643,7 +647,10 @@
 				}
 				break;
 			case 'h':
-				// todo
+				if (e.ctrlKey) {
+					text.selectNextOccurrence(!e.shiftKey, true);
+					e.preventDefault()
+				}
 				break;
 			case 'escape':
 				text.selectNone();
