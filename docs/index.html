@@ -29,13 +29,13 @@
 	}
 
 	span.ends-at {
-		color: #000;
-		background: #ddd;
+		color: #fff;
+		background: #b5b5b5;
 	}
 
 	span.marked {
 		color: #07b;
-		background: #cef;
+		background: #e5f5ff;
 	}
 </style>
 
@@ -209,7 +209,7 @@
 				else if (line)
 					delIndices[i] = this.findNextLinePoint(delIndices[i], right);
 				else if (word)
-					delIndices[i] = this.findNextWordPoint(delIndices[i], right, false);
+					delIndices[i] = this.findNextWordPoint(delIndices[i], right);
 				else
 					delIndices[i] = clamp(delIndices[i] + right * 2 - 1, 0, this.text.length);
 				this.removeTextAt(new Cursor(delIndices[0], delIndices[1]));
@@ -238,6 +238,13 @@
 
 		// selection methods
 
+		isSelected(left, right = left + 1) {
+			for (let i = left; i < right; i++)
+				if (!this.cursors.some(cursor => cursor.includes(i)))
+					return false;
+			return true;
+		}
+
 		selectNone() {
 			this.cursors = [new Cursor(this.cursors[0].end)];
 			this.commitCursor();
@@ -248,19 +255,25 @@
 			this.commitCursor();
 		}
 
-		selectNextOccurrence(reverse) {
-			// todo skip over existing cursors
-			// todo reverse
+		selectNextOccurrence(right, move = false) {
 			let cursor = this.lastCursor;
 			if (cursor.empty)
-			// todo grow without whitespace
-				return this.replaceLastCursor(...this.wordGrowCursorBoundaries(cursor));
+				return this.replaceLastCursor(...this.wordGrowCursorBoundaries(cursor, false));
 			let text = this.getTextAt(cursor);
-			let next = this.text.indexOf(text, cursor.right);
+			let next = this.findNextUnselectedOccurrenceWrapPoint(text, cursor.left, right);
 			if (next === -1)
-				next = this.text.indexOf(text);
-			if (next !== cursor.left)
+				return;
+			if (move)
+				this.replaceLastCursor(next, next + text.length);
+			else
 				this.addCursor(next, next + text.length);
+		}
+
+		selectAllOccurrences() {
+			let cursor = this.lastCursor.empty ? new Cursor(...this.wordGrowCursorBoundaries(cursor, false)) : this.lastCursor;
+			let text = this.getTextAt(cursor);
+			let indices = this.findAllOccurrencePoints(text, cursor.left);
+			this.addCursors(indices, text.length);
 		}
 
 		// cursor methods
@@ -280,7 +293,15 @@
 			this.commitCursor();
 		}
 
+		addCursors(starts, length) {
+			this.cursors = [...this.cursors, ...starts.map(start => new Cursor(start, start + length))];
+			this.mergeCursors();
+			this.commitCursor();
+		}
+
 		removeLastCursor() {
+			if (this.cursors.length === 1)
+				return;
 			this.cursors.pop();
 			this.commitCursor();
 		}
@@ -306,7 +327,7 @@
 
 				switch (movement) {
 					case cursorMovement.CHAR:
-						if (cursor.empty)
+						if (cursor.empty || select)
 							newEnd = clamp(newEnd + d, 0, this.text.length);
 						else
 							newEnd = right ? cursor.right : cursor.left;
@@ -319,7 +340,7 @@
 						newEnd = this.findNextSubWordPoint(newEnd, right);
 						break;
 					case cursorMovement.WORD:
-						newEnd = this.findNextWordPoint(newEnd, right, false);
+						newEnd = this.findNextWordPoint(newEnd, right);
 						break;
 					case cursorMovement.LINE:
 						newEnd = this.findNextLinePoint(newEnd, right, false);
@@ -373,8 +394,9 @@
 			return this.findNextPoint(point, right, /(([a-z]+|[A-Z]+|[0-9]+|(.)\3*)[^\S\n]*|\n)/);
 		}
 
-		findNextWordPoint(point, right, excludeNewLine) {
-			return this.findNextPoint(point, right, /((\w+|(.)\3*)[^\S\n]*|\n)/, excludeNewLine);
+		findNextWordPoint(point, right, excludeNewLine = false, trailingWhitespace = true) {
+			let regex = new RegExp(`((\\w+|(.)\\3*)${trailingWhitespace ? '[^\\S\\n]*' : ''}|\\n)`);
+			return this.findNextPoint(point, right, regex, excludeNewLine);
 		}
 
 		findNextLinePoint(point, right) {
@@ -394,9 +416,38 @@
 			return point + (match.length + (point > this.text.length ? 1 : 0)) * (right ? 1 : -1);
 		}
 
-		wordGrowCursorBoundaries(cursor) {
-			let start = this.findNextWordPoint(cursor.start + 1, false);
-			let end = this.findNextWordPoint(start, true, true);
+		findNextUnselectedOccurrenceWrapPoint(text, point, right) {
+			let next = point;
+			while (true) {
+				next = right ? this.text.indexOf(text, next + 1) : this.text.lastIndexOf(text, next - 1);
+				if (next === -1) {
+					if (!right)
+						next = this.text.length;
+					continue;
+				}
+				if (next === point)
+					return -1;
+				else if (!this.isSelected(next, next + text.length))
+					return next;
+			}
+		}
+
+		findAllOccurrencePoints(text, point = -1) {
+			let indices = [];
+			let next = point;
+			while (true) {
+				next = this.text.indexOf(text, next + 1);
+				if (next === -1)
+					continue;
+				if (next === point)
+					return indices;
+				indices.push(next);
+			}
+		}
+
+		wordGrowCursorBoundaries(cursor, trailingWhitespace = true) {
+			let start = this.findNextWordPoint(cursor.start + 1, false, trailingWhitespace);
+			let end = this.findNextWordPoint(start, true, true, trailingWhitespace);
 			return [start, end];
 		}
 
@@ -483,7 +534,7 @@
 				$('#text').removeChild($('#text').firstChild);
 			let cursorSplits = this.cursors.flatMap(cursor => [cursor.left, cursor.right, cursor.end + 1]);
 			let markedSplits = this.cursors
-				.map(cursor => this.getTextAt(cursor).trim() || this.getTextAt(new Cursor(...this.wordGrowCursorBoundaries(cursor))).trim())
+				.map(cursor => this.getTextAt(cursor).trim() || this.getTextAt(new Cursor(...this.wordGrowCursorBoundaries(cursor, false))).trim())
 				.filter(text => text)
 				.flatMap(text => {
 					let splits = [], i;
@@ -501,7 +552,7 @@
 				let span = document.createElement('span');
 				span.textContent = paddedText.substring(split, a[i + 1]).replace(/\n/g, ' \n');
 				span['data-split'] = split;
-				if (this.cursors.some(cursor => cursor.includes(split)))
+				if (this.isSelected(split))
 					span.classList.add('selected');
 				else if (this.cursors.some(cursor => cursor.end === split))
 					span.classList.add('ends-at');
@@ -585,16 +636,21 @@
 				// todo
 				break;
 			case 'g':
-				if (e.ctrlKey) {
+				if (e.ctrlKey || e.altKey) {
 					if (e.shiftKey)
 						text.removeLastCursor();
+					else if (e.ctrlKey && e.altKey)
+						text.selectAllOccurrences();
 					else
-						text.selectNextOccurrence(e.altKey);
+						text.selectNextOccurrence(!e.altKey);
 					e.preventDefault();
 				}
 				break;
 			case 'h':
-				// todo
+				if (e.ctrlKey) {
+					text.selectNextOccurrence(!e.shiftKey, true);
+					e.preventDefault()
+				}
 				break;
 			case 'escape':
 				text.selectNone();
@@ -677,6 +733,8 @@
 	});
 
 	// TODO
+
+	// alt + up/down or page up/pgae down to move up 40 lines
 
 	// highlight selected line
 
