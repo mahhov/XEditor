@@ -209,7 +209,7 @@
 				else if (line)
 					delIndices[i] = this.findNextLinePoint(delIndices[i], right);
 				else if (word)
-					delIndices[i] = this.findNextWordPoint(delIndices[i], right, false);
+					delIndices[i] = this.findNextWordPoint(delIndices[i], right);
 				else
 					delIndices[i] = clamp(delIndices[i] + right * 2 - 1, 0, this.text.length);
 				this.removeTextAt(new Cursor(delIndices[0], delIndices[1]));
@@ -253,8 +253,7 @@
 			// todo reverse
 			let cursor = this.lastCursor;
 			if (cursor.empty)
-			// todo grow without whitespace
-				return this.replaceLastCursor(...this.wordGrowCursorBoundaries(cursor));
+				return this.replaceLastCursor(...this.wordGrowCursorBoundaries(cursor, false));
 			let text = this.getTextAt(cursor);
 			let next = this.text.indexOf(text, cursor.right);
 			if (next === -1)
@@ -319,7 +318,7 @@
 						newEnd = this.findNextSubWordPoint(newEnd, right);
 						break;
 					case cursorMovement.WORD:
-						newEnd = this.findNextWordPoint(newEnd, right, false);
+						newEnd = this.findNextWordPoint(newEnd, right);
 						break;
 					case cursorMovement.LINE:
 						newEnd = this.findNextLinePoint(newEnd, right, false);
@@ -373,8 +372,9 @@
 			return this.findNextPoint(point, right, /(([a-z]+|[A-Z]+|[0-9]+|(.)\3*)[^\S\n]*|\n)/);
 		}
 
-		findNextWordPoint(point, right, excludeNewLine) {
-			return this.findNextPoint(point, right, /((\w+|(.)\3*)[^\S\n]*|\n)/, excludeNewLine);
+		findNextWordPoint(point, right, excludeNewLine = false, trailingWhitespace = true) {
+			let regex = new RegExp(`((\\w+|(.)\\3*)${trailingWhitespace ? '[^\\S\\n]*' : ''}|\\n)`);
+			return this.findNextPoint(point, right, regex, excludeNewLine);
 		}
 
 		findNextLinePoint(point, right) {
@@ -394,9 +394,9 @@
 			return point + (match.length + (point > this.text.length ? 1 : 0)) * (right ? 1 : -1);
 		}
 
-		wordGrowCursorBoundaries(cursor) {
-			let start = this.findNextWordPoint(cursor.start + 1, false);
-			let end = this.findNextWordPoint(start, true, true);
+		wordGrowCursorBoundaries(cursor, trailingWhitespace = true) {
+			let start = this.findNextWordPoint(cursor.start + 1, false, trailingWhitespace);
+			let end = this.findNextWordPoint(start, true, true, trailingWhitespace);
 			return [start, end];
 		}
 
@@ -483,7 +483,7 @@
 				$('#text').removeChild($('#text').firstChild);
 			let cursorSplits = this.cursors.flatMap(cursor => [cursor.left, cursor.right, cursor.end + 1]);
 			let markedSplits = this.cursors
-				.map(cursor => this.getTextAt(cursor).trim() || this.getTextAt(new Cursor(...this.wordGrowCursorBoundaries(cursor))).trim())
+				.map(cursor => this.getTextAt(cursor).trim() || this.getTextAt(new Cursor(...this.wordGrowCursorBoundaries(cursor, false))).trim())
 				.filter(text => text)
 				.flatMap(text => {
 					let splits = [], i;
