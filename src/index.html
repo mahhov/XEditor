@@ -390,7 +390,7 @@
 		// cursor find point methods
 
 		findNextSubWordPoint(point, right) {
-			return this.findNextPoint(point, right, /(([a-z]+|[A-Z]+|[0-9]+|(.)\3*)[^\S\n]*|\n)/);
+			return this.findNextPoint(point, right, /(([A-Z]?[a-z0-9]+_?|[A-Z0-9]+_?|(.)\3*)[^\S\n]*|\n)/);
 		}
 
 		findNextWordPoint(point, right, excludeNewLine = false, trailingWhitespace = true) {
