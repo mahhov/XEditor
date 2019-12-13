@@ -55,14 +55,15 @@
 	const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
 	const cursorMovement = {
-		CHAR: 0,
-		ROW: 1,
-		SUB_WORD: 2,
-		WORD: 3,
-		LINE: 4,
-		TEXT: 5,
-		GROW: 6,
-		GROW_FULL: 7,
+		CHAR: {},
+		ROW: {},
+		LARGE_ROW: {},
+		SUB_WORD: {},
+		WORD: {},
+		LINE: {},
+		TEXT: {},
+		GROW: {},
+		GROW_FULL: {},
 	};
 
 	class Cursor {
@@ -336,10 +337,16 @@
 						else
 							newEnd = right ? cursor.right : cursor.left;
 						break;
-					case cursorMovement.ROW:
+					case cursorMovement.ROW: {
 						let {x, y} = this.pointToXY(newEnd);
 						newEnd = this.xyToPoint(x, y + d);
 						break;
+					}
+					case cursorMovement.LARGE_ROW: {
+						let {x, y} = this.pointToXY(newEnd);
+						newEnd = this.xyToPoint(x, y + d * 50);
+						break;
+					}
 					case cursorMovement.SUB_WORD:
 						newEnd = this.findNextSubWordPoint(newEnd, right);
 						break;
@@ -579,7 +586,7 @@
 		const horizArrowCursorMovement =
 			[cursorMovement.CHAR, cursorMovement.WORD, cursorMovement.LINE, cursorMovement.TEXT];
 		const vertArrowCursorMovement =
-			[cursorMovement.ROW, cursorMovement.GROW, cursorMovement.ROW, cursorMovement.GROW];
+			[cursorMovement.ROW, cursorMovement.GROW, cursorMovement.LARGE_ROW, cursorMovement.GROW];
 
 		let modifierIndex = e.ctrlKey + e.altKey * 2;
 		let noop = false;
@@ -741,8 +748,6 @@
 	});
 
 	// TODO
-
-	// alt + up/down or page up/pgae down to move up 40 lines
 
 	// highlight selected line
 
