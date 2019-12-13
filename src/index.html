@@ -10,6 +10,11 @@
 		margin: 0;
 	}
 
+	#numbers, #text {
+		margin: 0;
+		padding: 5px;
+	}
+
 	#numbers {
 		padding-right: 10px;
 		position: sticky;
@@ -577,6 +582,7 @@
 			[cursorMovement.ROW, cursorMovement.GROW, cursorMovement.ROW, cursorMovement.GROW];
 
 		let modifierIndex = e.ctrlKey + e.altKey * 2;
+		let noop = false;
 
 		switch (e.key.toLowerCase()) {
 			case 'enter':
@@ -688,11 +694,14 @@
 			case ' ':
 				e.preventDefault();
 			default:
+				noop = true;
 				if (e.key.length !== 1)
 					console.log(e.key, e.ctrlKey, e.shiftKey, e.altKey);
 		}
 		if (e.key.length === 1 && !e.ctrlKey && !e.altKey)
 			text.replaceSelections(e.key);
+		else if (noop)
+			return;
 
 		text.render();
 		text.save();
@@ -734,8 +743,6 @@
 	// TODO
 
 	// alt + up/down or page up/pgae down to move up 40 lines
-
-	// don't scroll on modifier key press
 
 	// highlight selected line
 
