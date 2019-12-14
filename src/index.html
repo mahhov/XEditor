@@ -143,9 +143,6 @@
 <script>
 	const $ = document.querySelector.bind(document);
 
-	const cleanText = text => text.replace(/\r\n?/g, '\n');
-	const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
-
 	const cursorMovement = {
 		CHAR: {},
 		ROW: {},
@@ -244,6 +241,14 @@
 			localStorage.setItem('text', this.text);
 		}
 
+		static clamp(value, min, max) {
+			return Math.min(Math.max(value, min), max);
+		}
+
+		static cleanText(text) {
+			return text.replace(/\r\n?/g, '\n');
+		}
+
 		pointToXY(point) {
 			let preText = this.text.substring(0, point);
 			let y = (preText.match(/\n/g) || []).length;
@@ -258,7 +263,7 @@
 		mouseXyToPoint(x, y) {
 			let {startContainer: textNode, startOffset: offset} = document.caretRangeFromPoint(x, y);
 			let point = textNode.parentNode['data-split'] + offset - (textNode.textContent.slice(0, offset + 1).match(/ \n/g) || []).length;
-			return clamp(point, 0, this.text.length);
+			return Text.clamp(point, 0, this.text.length);
 		}
 
 		// base text editing methods
@@ -273,7 +278,7 @@
 		}
 
 		insertTextAt(text, point) {
-			text = cleanText(text);
+			text = Text.cleanText(text);
 			this.text = this.text.substring(0, point) + text + this.text.substring(point);
 			this.cursors.forEach(cursorI => cursorI.shiftByInsertionOf(point, text.length));
 		}
@@ -308,7 +313,7 @@
 				else if (word)
 					delIndices[i] = this.findNextWordPoint(delIndices[i], right);
 				else
-					delIndices[i] = clamp(delIndices[i] + right * 2 - 1, 0, this.text.length);
+					delIndices[i] = Text.clamp(delIndices[i] + right * 2 - 1, 0, this.text.length);
 				this.removeTextAt(new Cursor(delIndices[0], delIndices[1]));
 			});
 			this.mergeCursors();
@@ -425,7 +430,7 @@
 				switch (movement) {
 					case cursorMovement.CHAR:
 						if (cursor.empty || select)
-							newEnd = clamp(newEnd + d, 0, this.text.length);
+							newEnd = Text.clamp(newEnd + d, 0, this.text.length);
 						else
 							newEnd = right ? cursor.right : cursor.left;
 						break;
@@ -570,7 +575,7 @@
 		}
 
 		async paste() {
-			let text = cleanText(await navigator.clipboard.readText());
+			let text = Text.cleanText(await navigator.clipboard.readText());
 			let texts = text.split('\n');
 			if (this.cursors.length === 1 || texts.length === 1)
 				this.replaceSelections(text);
