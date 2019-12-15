@@ -65,6 +65,7 @@
 		user-select: none;
 		font-size: 16px;
 		border: 1px solid;
+		align-items: start;
 	}
 
 	#numbers, #text {
@@ -246,7 +247,7 @@
 		}
 
 		static cleanText(text) {
-			return text.replace(/\r\n?/g, '\n');
+			return text.replace(/\r\n?/g, '\n').replace(/\t/g, '  ');
 		}
 
 		pointToXY(point) {
