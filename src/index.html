@@ -337,6 +337,15 @@
 					emitFileOpen(path))
 			});
 		}
+
+		async readFile(path) {
+			if (!this.entryHandle)
+				return;
+			let file = this.index.files.find(({path: pathI}) => pathI.every((p, i) => p === path[i]));
+			file.handle = file.handle || await path.reduce(async (handle, p, i, a) =>
+				i === a.length - 1 ? (await handle).getFile(p) : (await handle).getDirectory(p), this.entryHandle);
+			return (await file.handle.getFile()).text();
+		}
 	}
 
 	const cursorMovement = {
@@ -496,6 +505,14 @@
 			});
 			this.mergeCursors();
 			this.commitText();
+		}
+
+		replaceAll(text) {
+			this.setCursor(this.text.length);
+			this.removeTextAt(new Cursor(0, this.text.length));
+			this.insertTextAt(text, 0);
+			this.commitText();
+			this.setCursor(text.length);
 		}
 
 		deleteSelections(right, word, line, allLine) {
@@ -1056,17 +1073,28 @@
 			this.text.updateLastCursor(point);
 			this.text.render();
 		}
+
+		async setText(text) {
+			this.text.replaceAll(text);
+			this.text.render();
+			this.text.store(await dbPromise);
+		}
 	}
 
 	let filePaneController = new FilePaneController();
 	let textPaneController = new TextPaneController();
 
 	// todo use proper event emitting after we convert to custom elements
-	let emitFileOpen = path => {
-
+	let emitFileOpen = async path => {
+		let fileText = await filePaneController.readFile(path);
+		if (fileText !== undefined)
+			textPaneController.setText(fileText);
 	};
 
 	// TODO
+
+	// file deletion, creation, save
+	// multitab files
 
 	// highlight selected line
 
