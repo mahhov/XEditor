@@ -65,6 +65,7 @@
 	}
 
 	#results {
+		flex: 1;
 		overflow: auto;
 	}
 
@@ -189,6 +190,7 @@
 		}
 
 		static remove(db, name) {
+			// todo not working
 			return db.delete(name);
 		}
 
@@ -997,8 +999,10 @@
 				case 'z':
 					if (e.ctrlKey || e.altKey)
 						this.text.undo(e.altKey, e.shiftKey);
+					break;
 				case ' ':
 					e.preventDefault();
+					break;
 				default:
 					noop = true;
 					if (e.key.length !== 1)
