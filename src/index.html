@@ -75,6 +75,11 @@
 		border: none;
 	}
 
+	#results button.selected {
+		color: #fff;
+		background: #b5b5b5;
+	}
+
 	.text-pane {
 		flex: 1;
 		display: flex;
@@ -333,8 +338,11 @@
 				let fileEl = document.createElement('button');
 				fileEl.textContent = path.join(' / ');
 				$('#results').appendChild(fileEl);
-				fileEl.addEventListener('click', () =>
-					emitFileOpen(path))
+				fileEl.addEventListener('click', () => {
+					[...$('#results').children].forEach(fileEl => fileEl.classList.remove('selected'));
+					fileEl.classList.add('selected');
+					emitFileOpen(path);
+				})
 			});
 		}
 
