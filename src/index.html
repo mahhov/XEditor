@@ -202,8 +202,7 @@
 		}
 
 		static remove(db, name) {
-			// todo not working
-			return db.delete(name);
+			return db.delete('index', name);
 		}
 
 		static readDirEntry(handle, timeout = 500) {
