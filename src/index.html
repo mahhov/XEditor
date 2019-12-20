@@ -164,6 +164,13 @@
 	const $ = document.querySelector.bind(document);
 	const sleep = (ms = 0) => new Promise(resolve => setTimeout(resolve, ms));
 
+	let dbPromise = idb.openDB('xEditor-c1', 1, {
+		upgrade: db => {
+			db.createObjectStore('index', {keyPath: 'name'});
+			db.createObjectStore('text');
+		}
+	});
+
 	class FileIndex {
 		constructor(name, files) {
 			this.name = name;
@@ -249,20 +256,16 @@
 
 	class FilePaneController {
 		constructor() {
-			this.dbPromise = idb.openDB('xEditor-n', 1, {
-				upgrade: db => db.createObjectStore('index', {keyPath: 'name'})
-			});
-
 			this.loadIndexSelect();
 
 			$('#select-dir-button').addEventListener('click', async () =>
 				this.entryHandle = await chooseFileSystemEntries({type: 'openDirectory'}));
 
 			$('#load-index-button').addEventListener('click', async () =>
-				this.setIndex(await FileIndex.restore(await this.dbPromise, $('#index-select').value)));
+				this.setIndex(await FileIndex.restore(await dbPromise, $('#index-select').value)));
 
 			$('#remove-index-button').addEventListener('click', async () => {
-				await FileIndex.remove(await this.dbPromise, $('#index-select').value);
+				await FileIndex.remove(await dbPromise, $('#index-select').value);
 				this.loadIndexSelect();
 			});
 
@@ -279,7 +282,7 @@
 		async loadIndexSelect() {
 			while ($('#index-select').firstChild)
 				$('#index-select').removeChild($('#index-select').firstChild);
-			let indices = await FileIndex.listIndices(await this.dbPromise);
+			let indices = await FileIndex.listIndices(await dbPromise);
 			indices.forEach(index => {
 				let option = document.createElement('option');
 				option.textContent = index;
@@ -299,7 +302,7 @@
 			let files = await FileIndex.read(this.entryHandle, whitelist);
 			let indexName = `${$('#index-name-input').value} @ ${this.entryHandle.name} (${whitelist.join(', ')})`;
 			this.setIndex(new FileIndex(indexName, files));
-			this.index.store(await this.dbPromise);
+			this.index.store(await dbPromise);
 			this.loadIndexSelect();
 		}
 
@@ -349,6 +352,7 @@
 	};
 
 	class Cursor {
+		// todo store and restore Cursor
 		constructor(start = 0, end = start) {
 			if (start <= end)
 				this.set(start, end);
@@ -418,20 +422,23 @@
 	}
 
 	class Text {
-		constructor(text = '') {
+		constructor(text = '', historyTexts = [text]) {
 			this.text = text;
 			this.cursors = [new Cursor()];
-			this.history = [{text, cursors: this.clonedCursors()}];
+			this.history = historyTexts.map(text => ({text, cursor: this.clonedCursors()}));
 			this.historyIndex = 0;
 		}
 
-		static restore() {
-			return new Text(
-				localStorage.getItem('text') || '');
+		store(db) {
+			db.put('text', {
+				text: this.text,
+				historyTexts: this.history.map(({text}) => text),
+			}, 'key');
 		}
 
-		save() {
-			localStorage.setItem('text', this.text);
+		static async restore(db) {
+			let got = await db.get('text', 'key') || {};
+			return new Text(got.text, got.historyTexts);
 		}
 
 		static clamp(value, min, max) {
@@ -871,11 +878,13 @@
 
 	class TextPaneController {
 		constructor() {
-			this.text = Text.restore();
-			this.text.render();
-			document.addEventListener('keydown', e => this.onKeyDown(e));
-			$('#text').addEventListener('mousedown', e => this.onMouseDown(e));
-			$('#text').addEventListener('mousemove', e => this.onMouseMove(e));
+			dbPromise.then(async db => {
+				this.text = await Text.restore(db);
+				this.text.render();
+				document.addEventListener('keydown', e => this.onKeyDown(e));
+				$('#text').addEventListener('mousedown', e => this.onMouseDown(e));
+				$('#text').addEventListener('mousemove', e => this.onMouseMove(e));
+			});
 		}
 
 		async onKeyDown(e) {
@@ -1014,7 +1023,7 @@
 				return;
 
 			this.text.render();
-			this.text.save();
+			this.text.store(await dbPromise);
 		}
 
 		onMouseDown(e) {
