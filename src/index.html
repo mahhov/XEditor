@@ -16,6 +16,7 @@
 
 	button:hover {
 		background: #f5f5f5;
+		cursor: pointer;
 	}
 
 	button:active {
@@ -27,6 +28,11 @@
 	}
 
 	.file-pane {
+		flex: 0;
+		flex-basis: 300px;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
 		padding: 5px 10px;
 		border: 1px solid;
 		border-right: none;
@@ -56,6 +62,16 @@
 
 	#file-selector {
 		width: 100%;
+	}
+
+	#results {
+		overflow: auto;
+	}
+
+	#results button {
+		display: block;
+		white-space: nowrap;
+		border: none;
 	}
 
 	.text-pane {
@@ -141,8 +157,186 @@
 	</div>
 </div>
 
-<script>
+<script type="module">
+	import * as idb from 'https://unpkg.com/idb?module';
+
 	const $ = document.querySelector.bind(document);
+	const sleep = (ms = 0) => new Promise(resolve => setTimeout(resolve, ms));
+
+	class FileIndex {
+		constructor(name, files) {
+			this.name = name;
+			this.files = files;
+			this.files.forEach(file =>
+				file.pathJoint = file.pathJoint || file.path
+					.map(p => p.match(/[a-z]+|[A-Z][a-z]*|\d+|./g).join(' '))
+					.join(' / '));
+		}
+
+		static listIndices(db) {
+			return db.getAllKeys('index');
+		}
+
+		store(db) {
+			db.put('index', {
+				name: this.name,
+				files: this.files.map(({path}) => ({path})),
+			});
+		}
+
+		static async restore(db, name) {
+			return new FileIndex(name, (await db.get('index', name)).files);
+		}
+
+		static remove(db, name) {
+			return db.delete(name);
+		}
+
+		static readDirEntry(handle, timeout = 500) {
+			return new Promise(async (resolve, reject) => {
+				setTimeout(() => reject('timeout'), timeout);
+				let entries = [];
+				for await (const entry of await handle.getEntries()) {
+					entries.push(entry);
+				}
+				resolve(entries);
+			});
+		}
+
+		static async readDirEntryRetry(handle, timeout = 500, tries = 5, waitBetweenTries = 500) {
+			while (tries--) {
+				try {
+					return await FileIndex.readDirEntry(handle, timeout);
+				} catch (e) {
+					let msg = `Failed to read ${handle.name}, ${tries} tries remaining.`;
+					console.warn(msg);
+					await sleep(waitBetweenTries);
+					if (!tries) {
+						throw msg;
+					}
+				}
+			}
+		}
+
+		static async read(entryHandle, whitelistDirs = []) {
+			let start = Date.now();
+			let files = [];
+			let pending = [{path: [], handle: entryHandle, failed: 0}];
+
+			while (pending.length) {
+				let {path, handle, failed} = pending.pop();
+				try {
+					(await FileIndex.readDirEntryRetry(handle)).forEach(entry => {
+						if (entry.isFile) {
+							files.push({path: path.concat(entry.name), handle: entry});
+						} else if (path.length || !whitelistDirs.length || whitelistDirs.includes(entry.name)) {
+							pending.push({path: path.concat(entry.name), handle: entry, failed: 0});
+						}
+					});
+					if (path.length < 3) {
+						console.info(`Read ${files.length}, pending ${pending.length}, queued ${path}.`);
+					}
+				} catch (e) {
+					failed++;
+					console.error(`Skipped ${path},${handle.name}. Failure ${failed} of 3 - ${e}`);
+					if (failed < 3) {
+						pending.push({path, handle, failed: failed});
+					}
+				}
+			}
+			console.info(`Done, read ${files.length} files in ${(Date.now() - start) / 1000} seconds.`);
+			return files;
+		}
+	}
+
+	class FilePaneController {
+		constructor() {
+			this.dbPromise = idb.openDB('xEditor-n', 1, {
+				upgrade: db => db.createObjectStore('index', {keyPath: 'name'})
+			});
+
+			this.loadIndexSelect();
+
+			$('#select-dir-button').addEventListener('click', async () =>
+				this.entryHandle = await chooseFileSystemEntries({type: 'openDirectory'}));
+
+			$('#load-index-button').addEventListener('click', async () =>
+				this.setIndex(await FileIndex.restore(await this.dbPromise, $('#index-select').value)));
+
+			$('#remove-index-button').addEventListener('click', async () => {
+				await FileIndex.remove(await this.dbPromise, $('#index-select').value);
+				this.loadIndexSelect();
+			});
+
+			$('#add-index-button').addEventListener('click', async () => this.onAddIndexClick());
+
+			$('#file-selector').addEventListener('input', () => this.updateResults());
+			$('#file-selector').addEventListener('keydown', e => {
+				// todo allow cursor selection
+				if (e.key === 'Enter')
+					$('#results').firstChild.click();
+			});
+		}
+
+		async loadIndexSelect() {
+			while ($('#index-select').firstChild)
+				$('#index-select').removeChild($('#index-select').firstChild);
+			let indices = await FileIndex.listIndices(await this.dbPromise);
+			indices.forEach(index => {
+				let option = document.createElement('option');
+				option.textContent = index;
+				$('#index-select').appendChild(option);
+			});
+		}
+
+		setIndex(index) {
+			this.index = index;
+			this.updateResults();
+		}
+
+		async onAddIndexClick() {
+			if (!this.entryHandle)
+				return;
+			let whitelist = $('#index-whitelist-input').value.split(/[, ]/g).filter(a => a);
+			let files = await FileIndex.read(this.entryHandle, whitelist);
+			let indexName = `${$('#index-name-input').value} @ ${this.entryHandle.name} (${whitelist.join(', ')})`;
+			this.setIndex(new FileIndex(indexName, files));
+			this.index.store(await this.dbPromise);
+			this.loadIndexSelect();
+		}
+
+		async updateResults() {
+			// todo include exact matches from non indexed paths
+			if (!this.index)
+				return;
+
+			let input = $('#file-selector').value;
+			let files = this.index.files;
+			const regexSpecial = '.*+?^${}()|[]\\';
+			let filteredPaths = [], filterSize = 60;
+			if (input) {
+				let inputRegexString = [...input.replace(/\s/g, '')]
+					.map(c => regexSpecial.includes(c) ? '\\' + c : c)
+					.join('(.* )?');
+				let inputRegex = new RegExp(inputRegexString, 'i');
+				files.forEach(file => {
+					if (filteredPaths.length < filterSize && inputRegex.test(file.pathJoint))
+						filteredPaths.push({path: file.path});
+				});
+			} else
+				filteredPaths = files.slice(0, filterSize);
+
+			while ($('#results').firstChild)
+				$('#results').removeChild($('#results').firstChild);
+			filteredPaths.forEach(({path}) => {
+				let fileEl = document.createElement('button');
+				fileEl.textContent = path.join(' / ');
+				$('#results').appendChild(fileEl);
+				fileEl.addEventListener('click', () =>
+					emitFileOpen(path))
+			});
+		}
+	}
 
 	const cursorMovement = {
 		CHAR: {},
@@ -855,8 +1049,13 @@
 		}
 	}
 
-	// let filePaneController = new FilePaneController();
+	let filePaneController = new FilePaneController();
 	let textPaneController = new TextPaneController();
+
+	// todo use proper event emitting after we convert to custom elements
+	let emitFileOpen = path => {
+
+	};
 
 	// TODO
 
