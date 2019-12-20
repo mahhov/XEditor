@@ -717,10 +717,6 @@
 					j > i && cursorNewer.mergeWith(cursor)));
 		}
 
-		reorderCursors() {
-			this.cursors.sort((c1, c2) => c1.left - c2.left);
-		}
-
 		// cursor find point methods
 
 		findNextSubWordPoint(point, right) {
@@ -786,20 +782,25 @@
 
 		// clipboard methods
 
-		copy() {
+		reorderedCursors() {
+			return this.clonedCursors().sort((c1, c2) => c1.left - c2.left);
+		}
+
+		copy(preserveOrdering) {
 			if (this.cursors.every(cursor => cursor.empty))
 				this.moveCursors(false, cursorMovement.GROW_FULL, true);
-			let texts = this.cursors.map(cursor => this.getTextAt(cursor));
+			let cursors = preserveOrdering ? this.cursors : this.reorderedCursors();
+			let texts = cursors.map(cursor => this.getTextAt(cursor));
 			this.lastClipboard = texts;
 			navigator.clipboard.writeText(texts.join('\n'));
 		}
 
-		cut() {
-			this.copy();
+		cut(preserveOrdering) {
+			this.copy(preserveOrdering);
 			this.deleteSelections(false, false, false, false);
 		}
 
-		async paste() {
+		async paste(preserveOrdering) {
 			let text = Text.cleanText(await navigator.clipboard.readText());
 			let texts = text.split('\n');
 			if (this.cursors.length === 1 || texts.length === 1)
@@ -807,6 +808,8 @@
 			else {
 				if (this.lastClipboard && this.lastClipboard.length !== 1 && text === this.lastClipboard.join('\n'))
 					texts = this.lastClipboard;
+				if (!preserveOrdering)
+					this.cursors = this.reorderedCursors();
 				this.replaceSelectionsMulti(texts);
 			}
 		}
@@ -1010,24 +1013,17 @@
 					break;
 				case 'c':
 					if (e.ctrlKey || e.altKey) {
-						// todo, reorder by default, alt key to not reorder, and preserve original cursor ordering
-						if (e.altKey)
-							this.text.reorderCursors();
-						this.text.copy();
+						this.text.copy(e.altKey);
 					}
 					break;
 				case 'x':
 					if (e.ctrlKey || e.altKey) {
-						if (e.altKey)
-							this.text.reorderCursors();
-						this.text.cut();
+						this.text.cut(e.altKey);
 					}
 					break;
 				case 'v':
 					if (e.ctrlKey || e.altKey) {
-						if (e.altKey)
-							this.text.reorderCursors();
-						await this.text.paste();
+						await this.text.paste(e.altKey);
 					}
 					break;
 				case 'z':
