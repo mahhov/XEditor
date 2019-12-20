@@ -52,6 +52,11 @@
 		margin: 5px 0;
 	}
 
+	#select-dir-button {
+		width: 100%;
+		text-align: start;
+	}
+
 	#index-name-input {
 		width: 80px;
 	}
@@ -262,8 +267,10 @@
 		constructor() {
 			this.loadIndexSelect();
 
-			$('#select-dir-button').addEventListener('click', async () =>
-				this.entryHandle = await chooseFileSystemEntries({type: 'openDirectory'}));
+			$('#select-dir-button').addEventListener('click', async () => {
+				this.entryHandle = await chooseFileSystemEntries({type: 'openDirectory'});
+				$('#select-dir-button').textContent = this.entryHandle.name;
+			});
 
 			$('#load-index-button').addEventListener('click', async () =>
 				this.setIndex(await FileIndex.restore(await dbPromise, $('#index-select').value)));
