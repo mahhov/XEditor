@@ -174,16 +174,15 @@
 	const $ = document.querySelector.bind(document);
 	const sleep = (ms = 0) => new Promise(resolve => setTimeout(resolve, ms));
 
-	let dbPromise = idb.openDB('xEditor-c1', 1, {
+	let dbPromise = idb.openDB('xEditor-c2', 1, {
 		upgrade: db => {
-			db.createObjectStore('index', {keyPath: 'name'});
+			db.createObjectStore('index');
 			db.createObjectStore('text');
 		}
 	});
 
 	class FileIndex {
-		constructor(name, files) {
-			this.name = name;
+		constructor(files) {
 			this.files = files;
 			this.files.forEach(file =>
 				file.pathJoint = file.pathJoint || file.path
@@ -195,15 +194,12 @@
 			return db.getAllKeys('index');
 		}
 
-		store(db) {
-			db.put('index', {
-				name: this.name,
-				files: this.files.map(({path}) => ({path})),
-			});
+		store(db, name) {
+			db.put('index', this.files.map(({path}) => ({path})), name);
 		}
 
 		static async restore(db, name) {
-			return new FileIndex(name, (await db.get('index', name)).files);
+			return new FileIndex(await db.get('index', name));
 		}
 
 		static remove(db, name) {
@@ -311,9 +307,9 @@
 				return;
 			let whitelist = $('#index-whitelist-input').value.split(/[, ]/g).filter(a => a);
 			let files = await FileIndex.read(this.entryHandle, whitelist);
+			this.setIndex(new FileIndex(files));
 			let indexName = `${$('#index-name-input').value} @ ${this.entryHandle.name} (${whitelist.join(', ')})`;
-			this.setIndex(new FileIndex(indexName, files));
-			this.index.store(await dbPromise);
+			this.index.store(await dbPromise, indexName);
 			this.loadIndexSelect();
 		}
 
