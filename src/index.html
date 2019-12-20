@@ -196,9 +196,8 @@
 			return new Promise(async (resolve, reject) => {
 				setTimeout(() => reject('timeout'), timeout);
 				let entries = [];
-				for await (const entry of await handle.getEntries()) {
+				for await (const entry of await handle.getEntries())
 					entries.push(entry);
-				}
 				resolve(entries);
 			});
 		}
@@ -227,21 +226,18 @@
 				let {path, handle, failed} = pending.pop();
 				try {
 					(await FileIndex.readDirEntryRetry(handle)).forEach(entry => {
-						if (entry.isFile) {
+						if (entry.isFile)
 							files.push({path: path.concat(entry.name), handle: entry});
-						} else if (path.length || !whitelistDirs.length || whitelistDirs.includes(entry.name)) {
+						else if (path.length || !whitelistDirs.length || whitelistDirs.includes(entry.name))
 							pending.push({path: path.concat(entry.name), handle: entry, failed: 0});
-						}
 					});
-					if (path.length < 3) {
+					if (path.length < 3)
 						console.info(`Read ${files.length}, pending ${pending.length}, queued ${path}.`);
-					}
 				} catch (e) {
 					failed++;
 					console.error(`Skipped ${path},${handle.name}. Failure ${failed} of 3 - ${e}`);
-					if (failed < 3) {
+					if (failed < 3)
 						pending.push({path, handle, failed: failed});
-					}
 				}
 			}
 			console.info(`Done, read ${files.length} files in ${(Date.now() - start) / 1000} seconds.`);
