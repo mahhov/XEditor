@@ -448,15 +448,15 @@
 			this.historyIndex = 0;
 		}
 
-		store(db) {
+		store(db, key = '___scratch___') {
 			db.put('text', {
 				text: this.text,
 				historyTexts: this.history.map(({text}) => text),
-			}, 'key');
+			}, key);
 		}
 
-		static async restore(db) {
-			let got = await db.get('text', 'key') || {};
+		static async restore(db, key = '___scratch___') {
+			let got = await db.get('text', key) || {};
 			return new Text(got.text, got.historyTexts);
 		}
 
@@ -867,7 +867,18 @@
 
 		// render methods
 
-		render() {
+		async render() {
+			// let renderId = this.lastRenderId = Math.random();
+			// while ($('#text').firstChild)
+			// 	$('#text').removeChild($('#text').firstChild);
+			// let quickSpan = document.createElement('span');
+			// quickSpan.textContent = this.text;
+			// $('#text').append(quickSpan);
+			// $('#numbers').textContent = '1\n' + (this.text.match(/\n/g) || []).map((_, i) => i + 2).join('\n');
+			// scrollToSpan.scrollIntoView({block: 'nearest'});
+			// await sleep(0);
+			// if (renderId !== this.lastRenderId) return console.log('skip 0');
+
 			while ($('#text').firstChild)
 				$('#text').removeChild($('#text').firstChild);
 			let cursorSplits = this.cursors.flatMap(cursor => [cursor.left, cursor.right, cursor.end + 1]);
@@ -886,10 +897,19 @@
 			if (splits[0] !== 0)
 				splits.unshift(0);
 			let paddedText = this.text + ' ';
+
+			let maskSize = 50;
+			let {y} = this.pointToXY(this.lastCursor.start);
+			let maskStart = this.xyToPoint(0, y - maskSize);
+			let maskEnd = this.xyToPoint(0, y + maskSize);
+			let preNewLines = Math.max(y - maskSize, 0);
+			paddedText = '\n'.repeat(preNewLines) + paddedText.substring(maskStart, maskEnd);
+			let splitShift = preNewLines - maskStart;
+
 			let scrollToSpan;
 			splits.forEach((split, i, a) => {
 				let span = document.createElement('span');
-				span.textContent = paddedText.substring(split, a[i + 1]).replace(/\n/g, ' \n');
+				span.textContent = paddedText.substring(split + splitShift, (a[i + 1] + splitShift) || undefined).replace(/\n/g, ' \n');
 				span['data-split'] = split;
 				if (this.isSelected(split))
 					span.classList.add('selected');
@@ -1098,6 +1118,8 @@
 	};
 
 	// TODO
+
+	// click position off by some pixels
 
 	// file deletion, creation, save
 	// multitab files
