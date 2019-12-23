@@ -186,6 +186,23 @@
 	const $ = document.querySelector.bind(document);
 	const sleep = (ms = 0) => new Promise(resolve => setTimeout(resolve, ms));
 
+	class Debouncer {
+		constructor(duration) {
+			this.duration = duration;
+			this.lastTime = 0;
+		}
+
+		request(handler) {
+			let id = this.id = {};
+			setTimeout(() => {
+				if (id !== this.id)
+					return;
+				this.lastTime = Date.now();
+				handler();
+			}, this.duration - Date.now() + this.lastTime);
+		}
+	}
+
 	let dbPromise = idb.openDB('xEditor-c2', 1, {
 		upgrade: db => {
 			db.createObjectStore('index');
@@ -1022,6 +1039,7 @@
 				this.scrollWheelEX = 0;
 				this.scrollWheelEY = 0;
 				this.scrollWheelDistance = 50;
+				this.verticalScrollDebouncer = new Debouncer(10);
 				$('.text-pane').addEventListener('wheel', e => this.onWheel(e));
 				$('#vertical-scroll').addEventListener('mousedown', e => {
 					this.verticalScrollDragging = true;
@@ -1216,11 +1234,12 @@
 		}
 
 		onVerticalScrollBar(e) {
-			if (!e.buttons)
-				return;
-			let {top, height} = $('#vertical-scroll').getBoundingClientRect();
-			this.text.scrollToRatio(0, (e.clientY - top) / height);
-			this.text.render();
+			if (e.buttons)
+				this.verticalScrollDebouncer.request(() => {
+					let {top, height} = $('#vertical-scroll').getBoundingClientRect();
+					this.text.scrollToRatio(0, (e.clientY - top) / height);
+					this.text.render();
+				});
 		}
 
 		async setText(text) {
