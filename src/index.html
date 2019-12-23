@@ -112,6 +112,10 @@
 		flex: 1;
 	}
 
+	#text .scroll-offset-span {
+		display: block;
+	}
+
 	span.selected {
 		color: #fff;
 		background: #333;
@@ -164,7 +168,7 @@
 
 	<div class="text-pane">
 		<pre id="numbers"></pre>
-		<pre id="text"></pre>
+		<pre id="text"><span class="scroll-offset-span"></span></pre>
 	</div>
 </div>
 
@@ -867,20 +871,12 @@
 
 		// render methods
 
-		async render() {
-			// let renderId = this.lastRenderId = Math.random();
-			// while ($('#text').firstChild)
-			// 	$('#text').removeChild($('#text').firstChild);
-			// let quickSpan = document.createElement('span');
-			// quickSpan.textContent = this.text;
-			// $('#text').append(quickSpan);
-			// $('#numbers').textContent = '1\n' + (this.text.match(/\n/g) || []).map((_, i) => i + 2).join('\n');
-			// scrollToSpan.scrollIntoView({block: 'nearest'});
-			// await sleep(0);
-			// if (renderId !== this.lastRenderId) return console.log('skip 0');
+		async render(scrollFollowCursor = true) {
+			let initialScrollLeft = $('.text-pane').scrollLeft;
+			let initialScrollTop = $('.text-pane').scrollTop;
 
-			while ($('#text').firstChild)
-				$('#text').removeChild($('#text').firstChild);
+			while ($('#text').lastElementChild !== $('#text').firstElementChild)
+				$('#text').removeChild($('#text').lastElementChild);
 			let cursorSplits = this.cursors.flatMap(cursor => [cursor.left, cursor.right, cursor.end + 1]);
 			let markedSplits = this.cursors
 				.map(cursor => this.getTextAt(cursor).trim() || this.getTextAt(new Cursor(...this.wordGrowCursorBoundaries(cursor, false))).trim())
@@ -898,31 +894,47 @@
 				splits.unshift(0);
 			let paddedText = this.text + ' ';
 
-			let maskSize = 50;
-			let {y} = this.pointToXY(this.lastCursor.start);
-			let maskStart = this.xyToPoint(0, y - maskSize);
-			let maskEnd = this.xyToPoint(0, y + maskSize);
-			let preNewLines = Math.max(y - maskSize, 0);
-			paddedText = '\n'.repeat(preNewLines) + paddedText.substring(maskStart, maskEnd);
-			let splitShift = preNewLines - maskStart;
+			const LINE_HEIGHT = 18.5; // todo compute instead of hardcoding;
+			let scrollTopY = ($('.text-pane').scrollTop - $('.scroll-offset-span').offsetTop + $('#text').offsetTop) / LINE_HEIGHT;
+			let heightY = $('.text-pane').clientHeight / LINE_HEIGHT;
+			let maskStartY = Math.max(Math.floor(scrollTopY) - 1, 0);
+			let maskEndY = Math.ceil(scrollTopY + heightY) + 1;
+			let maskStart = this.xyToPoint(0, maskStartY);
+			let maskEnd = this.xyToPoint(0, maskEndY) + 1;
+
+			$('.scroll-offset-span').style.height = `${maskStartY * LINE_HEIGHT}px`;
 
 			let scrollToSpan;
+
 			splits.forEach((split, i, a) => {
-				let span = document.createElement('span');
-				span.textContent = paddedText.substring(split + splitShift, (a[i + 1] + splitShift) || undefined).replace(/\n/g, ' \n');
-				span['data-split'] = split;
-				if (this.isSelected(split))
-					span.classList.add('selected');
-				else if (this.cursors.some(cursor => cursor.end === split))
-					span.classList.add('ends-at');
-				else if (markedSplits.some(([markedSplit, length]) => split >= markedSplit && split < markedSplit + length))
-					span.classList.add('marked');
-				$('#text').appendChild(span);
+				let nextSplit = a[i + 1] || this.text.length + 1;
+				let offset = Text.clamp(split, maskStart, maskEnd);
+				let text = paddedText.substring(offset, Text.clamp(nextSplit, maskStart, maskEnd)).replace(/\n/g, ' \n');
+				if (!text)
+					return;
+				let span = this.renderSpan(text, offset, split, markedSplits);
 				if (split === this.lastCursor.end)
 					scrollToSpan = span;
 			});
 			$('#numbers').textContent = '1\n' + (this.text.match(/\n/g) || []).map((_, i) => i + 2).join('\n');
-			scrollToSpan.scrollIntoView({block: 'nearest'});
+			if (scrollToSpan && scrollFollowCursor)
+				scrollToSpan.scrollIntoView({block: 'nearest'});
+			else
+				$('.text-pane').scroll(initialScrollLeft, initialScrollTop);
+		}
+
+		renderSpan(text, offset, split, markedSplits) {
+			let span = document.createElement('span');
+			span.textContent = text;
+			span['data-split'] = offset;
+			if (this.isSelected(split))
+				span.classList.add('selected');
+			else if (this.cursors.some(cursor => cursor.end === split))
+				span.classList.add('ends-at');
+			else if (markedSplits.some(([markedSplit, length]) => split >= markedSplit && split < markedSplit + length))
+				span.classList.add('marked');
+			$('#text').appendChild(span);
+			return span;
 		}
 	}
 
@@ -934,6 +946,7 @@
 				document.addEventListener('keydown', e => this.onKeyDown(e));
 				$('#text').addEventListener('mousedown', e => this.onMouseDown(e));
 				$('#text').addEventListener('mousemove', e => this.onMouseMove(e));
+				$('.text-pane').addEventListener('scroll', () => this.text.render(false));
 			});
 		}
 
@@ -1204,7 +1217,7 @@
 	// c-home/end -> text start/end
 	// c-;/' -> sub word
 
-	// c-z -> udno
+	// c-z -> undo
 	// c-s-z -> redo
 	// a-z or c-a-z -> undo cursor
 	// a-s-z or c-a-s-z -> redo cursor
