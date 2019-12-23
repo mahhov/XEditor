@@ -480,8 +480,8 @@
 		}
 
 		mouseXyToPoint(x, y) {
-			let {startContainer: textNode, startOffset: offset} = document.caretRangeFromPoint(x, y);
-			let point = textNode.parentNode['data-split'] + offset - (textNode.textContent.slice(0, offset + 1).match(/ \n/g) || []).length;
+			let {startContainer: textNode, startOffset: offset} = document.caretRangeFromPoint(x - 3, y); // todo compute 3 from char width / 2
+			let point = textNode.parentNode['data-split'] + Text.clamp(offset, 0, textNode.textContent.length - 1);
 			return Text.clamp(point, 0, this.text.length);
 		}
 
@@ -1157,8 +1157,6 @@
 	};
 
 	// TODO
-
-	// click position off by some pixels
 
 	// file deletion, creation, save
 	// multitab files
