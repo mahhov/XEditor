@@ -88,7 +88,7 @@
 	.text-pane {
 		flex: 1;
 		display: flex;
-		overflow-y: auto;
+		overflow: hidden;
 		user-select: none;
 		font-size: 16px;
 		border: 1px solid;
@@ -110,10 +110,6 @@
 
 	#text {
 		flex: 1;
-	}
-
-	#text .scroll-offset-span {
-		display: block;
 	}
 
 	span.selected {
@@ -168,7 +164,7 @@
 
 	<div class="text-pane">
 		<pre id="numbers"></pre>
-		<pre id="text"><span class="scroll-offset-span"></span></pre>
+		<pre id="text"></pre>
 	</div>
 </div>
 
@@ -870,13 +866,40 @@
 		}
 
 		// render methods
+		// todo move render functions to separate or controller class
 
-		async render(scrollFollowCursor = true) {
-			let initialScrollLeft = $('.text-pane').scrollLeft;
-			let initialScrollTop = $('.text-pane').scrollTop;
+		initRender() {
+			this.scrollX = 0;
+			this.scrollY = 0;
+			this.scrollEX = 0;
+			this.scrollEY = 0;
+			this.scrollXMax = 0; // todo use
+			this.scrollYMax = 0;
+			this.scrollDistance = 50;
+			this.scrollHeight = 50; // todo compute
+			this.lineHeight = 18.5; // todo compute
+		}
 
-			while ($('#text').lastElementChild !== $('#text').firstElementChild)
-				$('#text').removeChild($('#text').lastElementChild);
+		scrollBy(ex, ey) {
+			this.scrollEX = Math.sign(this.scrollEX) === Math.sign(ex) ? this.scrollEX + ex : ex;
+			this.scrollEY = Math.sign(this.scrollEY) === Math.sign(ey) ? this.scrollEY + ey : ey;
+			this.scrollXMax = Math.max(...this.text.split('\n').map(line => line.length));
+			this.scrollYMax = (this.text.match(/\n/g) || []).length;
+			this.scrollX = Text.clamp(this.scrollX + parseInt(this.scrollEX / this.scrollDistance), 0, this.scrollXMax);
+			this.scrollY = Text.clamp(this.scrollY + parseInt(this.scrollEY / this.scrollDistance), 0, this.scrollYMax);
+			this.scrollEX = this.scrollEX % this.scrollDistance;
+			this.scrollEY = this.scrollEY % this.scrollDistance;
+		}
+
+		scrollToLastCursor() {
+			({x: this.scrollX, y: this.scrollY} = this.pointToXY(this.lastCursor.end));
+			// todo only scroll min amount necessary
+		}
+
+		async render() {
+			// todo render scrollbars
+			while ($('#text').firstChild)
+				$('#text').removeChild($('#text').firstChild);
 			let cursorSplits = this.cursors.flatMap(cursor => [cursor.left, cursor.right, cursor.end + 1]);
 			let markedSplits = this.cursors
 				.map(cursor => this.getTextAt(cursor).trim() || this.getTextAt(new Cursor(...this.wordGrowCursorBoundaries(cursor, false))).trim())
@@ -894,17 +917,8 @@
 				splits.unshift(0);
 			let paddedText = this.text + ' ';
 
-			const LINE_HEIGHT = 18.5; // todo compute instead of hardcoding;
-			let scrollTopY = ($('.text-pane').scrollTop - $('.scroll-offset-span').offsetTop + $('#text').offsetTop) / LINE_HEIGHT;
-			let heightY = $('.text-pane').clientHeight / LINE_HEIGHT;
-			let maskStartY = Math.max(Math.floor(scrollTopY) - 1, 0);
-			let maskEndY = Math.ceil(scrollTopY + heightY) + 1;
-			let maskStart = this.xyToPoint(0, maskStartY);
-			let maskEnd = this.xyToPoint(0, maskEndY) + 1;
-
-			$('.scroll-offset-span').style.height = `${maskStartY * LINE_HEIGHT}px`;
-
-			let scrollToSpan;
+			let maskStart = this.xyToPoint(0, this.scrollY);
+			let maskEnd = this.xyToPoint(0, this.scrollY + this.scrollHeight) + 1;
 
 			splits.forEach((split, i, a) => {
 				let nextSplit = a[i + 1] || this.text.length + 1;
@@ -913,14 +927,8 @@
 				if (!text)
 					return;
 				let span = this.renderSpan(text, offset, split, markedSplits);
-				if (split === this.lastCursor.end)
-					scrollToSpan = span;
 			});
-			$('#numbers').textContent = '1\n' + (this.text.match(/\n/g) || []).map((_, i) => i + 2).join('\n');
-			if (scrollToSpan && scrollFollowCursor)
-				scrollToSpan.scrollIntoView({block: 'nearest'});
-			else
-				$('.text-pane').scroll(initialScrollLeft, initialScrollTop);
+			$('#numbers').textContent = '1\n' + (this.text.match(/\n/g) || []).map((_, i) => i + 2).join('\n'); // todo correct numbers
 		}
 
 		renderSpan(text, offset, split, markedSplits) {
@@ -942,11 +950,16 @@
 		constructor() {
 			dbPromise.then(async db => {
 				this.text = await Text.restore(db);
+				this.text.initRender();
 				this.text.render();
 				document.addEventListener('keydown', e => this.onKeyDown(e));
 				$('#text').addEventListener('mousedown', e => this.onMouseDown(e));
 				$('#text').addEventListener('mousemove', e => this.onMouseMove(e));
-				$('.text-pane').addEventListener('scroll', () => this.text.render(false));
+				$('.text-pane').addEventListener('wheel', e => {
+					e.preventDefault();
+					this.text.scrollBy(e.deltaX, e.deltaY);
+					this.text.render();
+				});
 			});
 		}
 
@@ -1078,6 +1091,7 @@
 			else if (noop)
 				return;
 
+			this.text.scrollToLastCursor();
 			this.text.render();
 			this.text.store(await dbPromise);
 		}
@@ -1096,6 +1110,7 @@
 					this.text.setCursor(point);
 			}
 			this.lastMouseDown = now;
+			this.text.scrollToLastCursor();
 			this.text.render();
 			// todo alt to block cursor
 			// todo ctrl to add (or remove) cursor
@@ -1110,11 +1125,13 @@
 				return;
 			this.lastMousePoint = point;
 			this.text.updateLastCursor(point);
+			this.text.scrollToLastCursor();
 			this.text.render();
 		}
 
 		async setText(text) {
 			this.text.replaceAll(text);
+			this.text.scrollToLastCursor();
 			this.text.render();
 			this.text.store(await dbPromise);
 		}
