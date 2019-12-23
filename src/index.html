@@ -92,16 +92,12 @@
 		user-select: none;
 		font-size: 16px;
 		border: 1px solid;
-		align-items: start;
-	}
-
-	#numbers, #text {
-		margin: 0;
-		padding: 5px;
+		align-items: stretch;
 	}
 
 	#numbers {
-		padding-right: 10px;
+		margin: 0;
+		padding: 5px 10px 5px 5px;
 		position: sticky;
 		left: 0;
 		background: white;
@@ -109,7 +105,9 @@
 	}
 
 	#text {
+		margin: 5px;
 		flex: 1;
+		overflow: hidden;
 	}
 
 	span.selected {
@@ -164,7 +162,7 @@
 
 	<div class="text-pane">
 		<pre id="numbers"></pre>
-		<pre id="text"></pre>
+		<pre id="text"><span id="empty-sizing-char"> </span></pre>
 	</div>
 </div>
 
@@ -873,14 +871,20 @@
 		// todo move render functions to separate or controller class
 
 		initRender() {
+			({width: this.charWidth, height: this.charHeight} = $('#empty-sizing-char').getBoundingClientRect());
 			this.scrollX = 0;
 			this.scrollY = 0;
 			this.scrollEX = 0;
 			this.scrollEY = 0;
 			this.scrollDistance = 50;
-			this.scrollHeight = 49; // todo compute
-			this.scrollWidth = 30; // todo compute
-			this.lineHeight = 18.5; // todo compute
+		}
+
+		get scrollWidth() {
+			return parseInt($('#text').getBoundingClientRect().width / this.charWidth);
+		}
+
+		get scrollHeight() {
+			return parseInt($('#text').getBoundingClientRect().height / this.charHeight);
 		}
 
 		get scrollXMax() {
