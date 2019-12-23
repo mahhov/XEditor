@@ -177,6 +177,7 @@
 		<div id="vertical-scroll">
 			<div id="vertical-scroll-handle"></div>
 		</div>
+		<!--todo horiz scroll bar-->
 	</div>
 </div>
 
@@ -976,9 +977,9 @@
 				let lineDiv = document.createElement('div');
 				$('#text').appendChild(lineDiv);
 				let lineSplit = lineSplits[i];
-				let nextLineSplit = lineSplits[i + 1];
+				let nextLineSplit = lineSplits[i + 1] || this.text.length + 1;
 				let scrollXRemaining = this.scrollX;
-				for (; j < splits.length && (!nextLineSplit || splits[j] < nextLineSplit); j++) {
+				for (; j < splits.length && splits[j] < nextLineSplit; j++) {
 					let split = Text.clamp(splits[j], maskStart, maskEnd);
 					let nextSplit = Text.clamp(splits[j + 1] || this.text.length + 1, maskStart, maskEnd);
 					if (split === nextSplit)
@@ -1033,7 +1034,6 @@
 				// mouse cursor
 				$('#text').addEventListener('mousedown', e => this.onMouseDown(e)); // todo support .text-pane and #numbers clicks.
 				$('#text').addEventListener('mousemove', e => this.onMouseMove(e));
-				// todo fix clicking on whitespace below last line scrolls to top
 
 				// scrolling
 				this.scrollWheelEX = 0;
