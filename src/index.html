@@ -132,8 +132,8 @@
 
 	#vertical-scroll-handle {
 		pointer-events: none;
-		background: black;
 		position: relative;
+		background: #b5b5b5;
 	}
 </style>
 
@@ -921,7 +921,8 @@
 		}
 
 		scrollTo(ex, ey) {
-			this.scrollY = parseInt(ey / $('#vertical-scroll').getBoundingClientRect().height * this.scrollYMax - this.scrollHeight / 2);
+			let {top, height} = $('#vertical-scroll').getBoundingClientRect();
+			this.scrollY = parseInt((ey - top) / height * this.scrollYMax - this.scrollHeight / 2);
 			this.scrollY = Text.clamp(this.scrollY, 0, this.scrollYMax);
 		}
 
@@ -1025,9 +1026,16 @@
 					this.text.scrollBy(e.deltaX, e.deltaY);
 					this.text.render();
 				});
-				$('#vertical-scroll').addEventListener('mousedown', e => this.onVerticalScrollBar(e));
-				$('#vertical-scroll').addEventListener('mousemove', e => this.onVerticalScrollBar(e));
-				// todo continue scrolling when dragging out of #vertical-scroll
+				$('#vertical-scroll').addEventListener('mousedown', e => {
+					this.verticalScrollDragging = true;
+					this.onVerticalScrollBar(e);
+				});
+				document.addEventListener('mouseup', () => this.verticalScrollDragging = false);
+				document.addEventListener('mousemove', e => {
+					if (this.verticalScrollDragging)
+						this.onVerticalScrollBar(e)
+				});
+				// todo debounce scrollingn
 			});
 		}
 
@@ -1186,7 +1194,7 @@
 		}
 
 		onMouseMove(e) {
-			if (!e.buttons)
+			if (!e.buttons || this.verticalScrollDragging)
 				return;
 			let point = this.text.mouseXyToPoint(e.x, e.y);
 			if (point === this.lastMousePoint)
@@ -1200,7 +1208,7 @@
 		onVerticalScrollBar(e) {
 			if (!e.buttons)
 				return;
-			this.text.scrollTo(0, e.offsetY);
+			this.text.scrollTo(e.clientX, e.clientY);
 			this.text.render();
 		}
 
