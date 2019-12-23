@@ -1001,8 +1001,8 @@
 
 			$('#numbers').textContent = [...Array(Math.min(this.scrollHeight, this.scrollYMax - this.scrollY + 1))].map((_, i) => this.scrollY + i + 1).join('\n');
 
-			$('#vertical-scroll-handle').style.height = `${this.scrollHeight / this.scrollYMax * 100}%`;
-			$('#vertical-scroll-handle').style.top = `${this.scrollY / this.scrollYMax * 100}%`;
+			$('#vertical-scroll-handle').style.height = `${this.scrollHeight / (this.scrollYMax + 1) * 100}%`;
+			$('#vertical-scroll-handle').style.top = `${this.scrollY / (this.scrollYMax + 1) * 100}%`;
 		}
 
 		renderSpan(text, start, end, markedSplits) {
