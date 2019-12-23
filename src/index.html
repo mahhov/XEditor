@@ -124,6 +124,17 @@
 		color: #07b;
 		background: #e5f5ff;
 	}
+
+	#vertical-scroll {
+		width: 9px;
+		outline: 1px solid;
+	}
+
+	#vertical-scroll-handle {
+		pointer-events: none;
+		background: black;
+		position: relative;
+	}
 </style>
 
 <div class="page">
@@ -163,6 +174,9 @@
 	<div class="text-pane">
 		<pre id="numbers"></pre>
 		<pre id="text"><span id="empty-sizing-char"> </span></pre>
+		<div id="vertical-scroll">
+			<div id="vertical-scroll-handle"></div>
+		</div>
 	</div>
 </div>
 
@@ -906,6 +920,11 @@
 			this.scrollEY = this.scrollEY % this.scrollDistance;
 		}
 
+		scrollTo(ex, ey) {
+			this.scrollY = parseInt(ey / $('#vertical-scroll').getBoundingClientRect().height * this.scrollYMax - this.scrollHeight / 2);
+			this.scrollY = Text.clamp(this.scrollY, 0, this.scrollYMax);
+		}
+
 		scrollToLastCursor() {
 			let padding = 1;
 			let {x, y} = this.pointToXY(this.lastCursor.end);
@@ -972,6 +991,9 @@
 			}
 
 			$('#numbers').textContent = [...Array(Math.min(this.scrollHeight, this.scrollYMax - this.scrollY + 1))].map((_, i) => this.scrollY + i + 1).join('\n');
+
+			$('#vertical-scroll-handle').style.height = `${this.scrollHeight / this.scrollYMax * 100}%`;
+			$('#vertical-scroll-handle').style.top = `${this.scrollY / this.scrollYMax * 100}%`;
 		}
 
 		renderSpan(text, start, end, markedSplits) {
@@ -995,13 +1017,17 @@
 				this.text.initRender();
 				this.text.render();
 				document.addEventListener('keydown', e => this.onKeyDown(e));
-				$('#text').addEventListener('mousedown', e => this.onMouseDown(e)); // todo support .text-pane and #numbers clicks
+				$('#text').addEventListener('mousedown', e => this.onMouseDown(e)); // todo support .text-pane and #numbers clicks.
+				// todo fix clicking on whitespace below last line scrolls to top
 				$('#text').addEventListener('mousemove', e => this.onMouseMove(e));
 				$('.text-pane').addEventListener('wheel', e => {
 					e.preventDefault();
 					this.text.scrollBy(e.deltaX, e.deltaY);
 					this.text.render();
 				});
+				$('#vertical-scroll').addEventListener('mousedown', e => this.onVerticalScrollBar(e));
+				$('#vertical-scroll').addEventListener('mousemove', e => this.onVerticalScrollBar(e));
+				// todo continue scrolling when dragging out of #vertical-scroll
 			});
 		}
 
@@ -1168,6 +1194,13 @@
 			this.lastMousePoint = point;
 			this.text.updateLastCursor(point);
 			this.text.scrollToLastCursor();
+			this.text.render();
+		}
+
+		onVerticalScrollBar(e) {
+			if (!e.buttons)
+				return;
+			this.text.scrollTo(0, e.offsetY);
 			this.text.render();
 		}
 
