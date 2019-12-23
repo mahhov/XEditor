@@ -869,31 +869,40 @@
 		// todo move render functions to separate or controller class
 
 		initRender() {
-			this.scrollX = 0;
+			this.scrollX = 0; // todo use
 			this.scrollY = 0;
 			this.scrollEX = 0;
 			this.scrollEY = 0;
-			this.scrollXMax = 0; // todo use
-			this.scrollYMax = 0;
 			this.scrollDistance = 50;
-			this.scrollHeight = 50; // todo compute
+			this.scrollHeight = 49; // todo compute
+			this.scrollWidth = 30; // todo compute
 			this.lineHeight = 18.5; // todo compute
 		}
 
+		get scrollXMax() {
+			return Math.max(...this.text.split('\n').map(line => line.length));
+		}
+
+		get scrollYMax() {
+			return (this.text.match(/\n/g) || []).length;
+		}
+
 		scrollBy(ex, ey) {
-			this.scrollEX = Math.sign(this.scrollEX) === Math.sign(ex) ? this.scrollEX + ex : ex;
-			this.scrollEY = Math.sign(this.scrollEY) === Math.sign(ey) ? this.scrollEY + ey : ey;
-			this.scrollXMax = Math.max(...this.text.split('\n').map(line => line.length));
-			this.scrollYMax = (this.text.match(/\n/g) || []).length;
-			this.scrollX = Text.clamp(this.scrollX + parseInt(this.scrollEX / this.scrollDistance), 0, this.scrollXMax);
-			this.scrollY = Text.clamp(this.scrollY + parseInt(this.scrollEY / this.scrollDistance), 0, this.scrollYMax);
+			this.scrollEX += ex;
+			this.scrollEY += ey;
+			this.scrollX += parseInt(this.scrollEX / this.scrollDistance);
+			this.scrollY += parseInt(this.scrollEY / this.scrollDistance);
+			this.scrollX = Text.clamp(this.scrollX, 0, this.scrollXMax);
+			this.scrollY = Text.clamp(this.scrollY, 0, this.scrollYMax);
 			this.scrollEX = this.scrollEX % this.scrollDistance;
 			this.scrollEY = this.scrollEY % this.scrollDistance;
 		}
 
 		scrollToLastCursor() {
-			({x: this.scrollX, y: this.scrollY} = this.pointToXY(this.lastCursor.end));
-			// todo only scroll min amount necessary
+			let padding = 1;
+			let {x, y} = this.pointToXY(this.lastCursor.end);
+			this.scrollY = Text.clamp(this.scrollY, y - this.scrollHeight + 1 + padding, Math.max(y - padding, 0));
+			this.scrollX = Text.clamp(this.scrollX, x - this.scrollWidth + 1 + padding, Math.max(x - padding, 0));
 		}
 
 		async render() {
@@ -953,7 +962,7 @@
 				this.text.initRender();
 				this.text.render();
 				document.addEventListener('keydown', e => this.onKeyDown(e));
-				$('#text').addEventListener('mousedown', e => this.onMouseDown(e));
+				$('#text').addEventListener('mousedown', e => this.onMouseDown(e)); // todo support .text-pane and #numbers clicks
 				$('#text').addEventListener('mousemove', e => this.onMouseMove(e));
 				$('.text-pane').addEventListener('wheel', e => {
 					e.preventDefault();
