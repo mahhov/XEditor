@@ -888,9 +888,6 @@
 			({width: this.charWidth, height: this.charHeight} = $('#empty-sizing-char').getBoundingClientRect());
 			this.scrollX = 0;
 			this.scrollY = 0;
-			this.scrollEX = 0;
-			this.scrollEY = 0;
-			this.scrollDistance = 50;
 		}
 
 		get scrollWidth() {
@@ -909,21 +906,15 @@
 			return (this.text.match(/\n/g) || []).length;
 		}
 
-		scrollBy(ex, ey) {
-			this.scrollEX += ex;
-			this.scrollEY += ey;
-			this.scrollX += parseInt(this.scrollEX / this.scrollDistance);
-			this.scrollY += parseInt(this.scrollEY / this.scrollDistance);
-			this.scrollX = Text.clamp(this.scrollX, 0, this.scrollXMax);
-			this.scrollY = Text.clamp(this.scrollY, 0, this.scrollYMax);
-			this.scrollEX = this.scrollEX % this.scrollDistance;
-			this.scrollEY = this.scrollEY % this.scrollDistance;
+		scrollBy(dx, dy) {
+			this.scrollX = Text.clamp(this.scrollX + dx, 0, this.scrollXMax);
+			this.scrollY = Text.clamp(this.scrollY + dy, 0, this.scrollYMax);
 		}
 
-		scrollTo(ex, ey) {
-			let {top, height} = $('#vertical-scroll').getBoundingClientRect();
-			this.scrollY = parseInt((ey - top) / height * this.scrollYMax - this.scrollHeight / 2);
-			this.scrollY = Text.clamp(this.scrollY, 0, this.scrollYMax);
+		scrollToRatio(rx, ry) {
+			// rx & ry are expected to be [0, 1). Scrolls to center.
+			this.scrollY = Text.clamp(parseInt(rx * this.scrollXMax - this.scrollwidth / 2), 0, this.scrollXMax);
+			this.scrollY = Text.clamp(parseInt(ry * this.scrollYMax - this.scrollHeight / 2), 0, this.scrollYMax);
 		}
 
 		scrollToLastCursor() {
@@ -1014,18 +1005,24 @@
 	class TextPaneController {
 		constructor() {
 			dbPromise.then(async db => {
+				// init
 				this.text = await Text.restore(db);
 				this.text.initRender();
 				this.text.render();
+
+				// key text & cursor
 				document.addEventListener('keydown', e => this.onKeyDown(e));
+
+				// mouse cursor
 				$('#text').addEventListener('mousedown', e => this.onMouseDown(e)); // todo support .text-pane and #numbers clicks.
-				// todo fix clicking on whitespace below last line scrolls to top
 				$('#text').addEventListener('mousemove', e => this.onMouseMove(e));
-				$('.text-pane').addEventListener('wheel', e => {
-					e.preventDefault();
-					this.text.scrollBy(e.deltaX, e.deltaY);
-					this.text.render();
-				});
+				// todo fix clicking on whitespace below last line scrolls to top
+
+				// scrolling
+				this.scrollWheelEX = 0;
+				this.scrollWheelEY = 0;
+				this.scrollWheelDistance = 50;
+				$('.text-pane').addEventListener('wheel', e => this.onWheel(e));
 				$('#vertical-scroll').addEventListener('mousedown', e => {
 					this.verticalScrollDragging = true;
 					this.onVerticalScrollBar(e);
@@ -1035,7 +1032,6 @@
 					if (this.verticalScrollDragging)
 						this.onVerticalScrollBar(e)
 				});
-				// todo debounce scrollingn
 			});
 		}
 
@@ -1205,10 +1201,25 @@
 			this.text.render();
 		}
 
+		onWheel(e) {
+			e.preventDefault();
+			this.scrollWheelEX += e.deltaX;
+			this.scrollWheelEY += e.deltaY;
+			let dx = parseInt(this.scrollWheelEX / this.scrollWheelDistance);
+			let dy = parseInt(this.scrollWheelEY / this.scrollWheelDistance);
+			if (!dx && !dy)
+				return;
+			this.text.scrollBy(dx, dy);
+			this.text.render();
+			this.scrollWheelEX = this.scrollWheelEX % this.scrollWheelDistance;
+			this.scrollWheelEY = this.scrollWheelEY % this.scrollWheelDistance;
+		}
+
 		onVerticalScrollBar(e) {
 			if (!e.buttons)
 				return;
-			this.text.scrollTo(e.clientX, e.clientY);
+			let {top, height} = $('#vertical-scroll').getBoundingClientRect();
+			this.text.scrollToRatio(0, (e.clientY - top) / height);
 			this.text.render();
 		}
 
