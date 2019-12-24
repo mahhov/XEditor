@@ -204,7 +204,7 @@
 		}
 	}
 
-	let dbPromise = idb.openDB('xEditor-c2', 1, {
+	let dbPromise = idb.openDB('xEditor-c5', 1, {
 		upgrade: db => {
 			db.createObjectStore('index');
 			db.createObjectStore('text');
@@ -401,7 +401,6 @@
 	};
 
 	class Cursor {
-		// todo store and restore Cursor
 		constructor(start = 0, end = start) {
 			if (start <= end)
 				this.set(start, end);
@@ -471,23 +470,23 @@
 	}
 
 	class Text {
-		constructor(text = '', historyTexts = [text]) {
+		constructor(text = '', history = [{text, cursor: new Cursor()}]) {
 			this.text = text;
-			this.cursors = [new Cursor()];
-			this.history = historyTexts.map(text => ({text, cursor: this.clonedCursors()}));
-			this.historyIndex = 0;
+			this.history = history;
+			this.historyIndex = history.length - 1;
+			this.cursors = this.clonedCursors(history[this.historyIndex].cursors);
+			// todo cursors not merged correctly
 		}
 
 		store(db, key = '___scratch___') {
-			db.put('text', {
-				text: this.text,
-				historyTexts: this.history.map(({text}) => text),
-			}, key);
+			let history = this.history.map(({text, cursors}) => ({text, cursors: cursors.map(({start, end}) => ({start, end}))}));
+			db.put('text', {text: this.text, history}, key);
 		}
 
 		static async restore(db, key = '___scratch___') {
-			let got = await db.get('text', key) || {};
-			return new Text(got.text, got.historyTexts);
+			let {text, history} = await db.get('text', key) || {};
+			history = history.map(({text, cursors}) => ({text, cursors: cursors.map(({start, end}) => new Cursor(start, end))}));
+			return new Text(text, history);
 		}
 
 		static clamp(value, min, max) {
