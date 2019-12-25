@@ -1,6 +1,27 @@
 <style>
 	body {
 		font-family: Arial, sans-serif;
+
+		--dark: #777;
+		--medium: #b5b5b5;
+		--light: #e5e5e5;
+		--off-white: #f5f5f5;
+
+		--button-hover-bg: var(--off-white);
+		--button-active-bg: var(--light);
+		--button-selected-fg: white;
+		--button-selected-bg: var(--medium);
+		--header-fg: var(--dark);
+		--numbers-fg: var(--medium);
+		--vertical-scroll-bg: var(--off-white);
+		--vertical-scroll-handle-bg: var(--medium);
+
+		--text-span-selected-fg: #fff;
+		--text-span-selected-bg: #333;
+		--text-span-ends-at-fg: #fff;
+		--text-span-ends-at-bg: #b5b5b5;
+		--text-span-marked-fg: #07b;
+		--text-span-marked-bg: #e5f5ff;
 	}
 
 	.page {
@@ -11,16 +32,20 @@
 	button {
 		background: none;
 		border: 1px solid;
-		color: #111;
 	}
 
 	button:hover {
-		background: #f5f5f5;
+		background: var(--button-hover-bg);
 		cursor: pointer;
 	}
 
 	button:active {
-		background: #e5e5e5;
+		background: var(--button-active-bg);
+	}
+
+	button.selected {
+		color: var(--button-selected-fg);
+		background: var(--button-selected-bg);
 	}
 
 	select {
@@ -41,7 +66,7 @@
 	.header {
 		margin: 15px 0 5px;
 		font-size: 12px;
-		color: #777;
+		color: var(--header-fg);
 	}
 
 	.section {
@@ -80,11 +105,6 @@
 		border: none;
 	}
 
-	#results button.selected {
-		color: #fff;
-		background: #b5b5b5;
-	}
-
 	.text-pane {
 		flex: 1;
 		display: flex;
@@ -100,8 +120,8 @@
 		padding: 5px 10px 5px 5px;
 		position: sticky;
 		left: 0;
-		background: white;
 		border-right: 1px solid;
+		color: var(--numbers-fg);
 	}
 
 	#text {
@@ -110,30 +130,30 @@
 		overflow: hidden;
 	}
 
-	span.selected {
-		color: #fff;
-		background: #333;
+	#text span.selected {
+		color: var(--text-span-selected-fg);
+		background: var(--text-span-selected-bg);
 	}
 
-	span.ends-at {
-		color: #fff;
-		background: #b5b5b5;
+	#text span.ends-at {
+		color: var(--text-span-ends-at-fg);
+		background: var(--text-span-ends-at-bg);
 	}
 
-	span.marked {
-		color: #07b;
-		background: #e5f5ff;
+	#text span.marked {
+		color: var(--text-span-marked-fg);
+		background: var(--text-span-marked-bg);
 	}
 
 	#vertical-scroll {
 		width: 9px;
-		outline: 1px solid;
+		background: var(--vertical-scroll-bg);
 	}
 
 	#vertical-scroll-handle {
 		pointer-events: none;
 		position: relative;
-		background: #b5b5b5;
+		background: var(--vertical-scroll-handle-bg);
 	}
 </style>
 
