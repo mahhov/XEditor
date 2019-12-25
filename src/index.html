@@ -1191,6 +1191,8 @@
 				this.text.moveCursors(false, cursorMovement.GROW, false); // todo only grow last cursor
 			else {
 				let point = this.text.mouseXyToPoint(e.x, e.y);
+				if (Number.isNaN(point))
+					return;
 				if (e.ctrlKey)
 					this.text.addCursor(point);
 				else if (e.shiftKey)
