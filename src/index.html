@@ -480,9 +480,11 @@
 			return point >= this.left && point < this.right;
 		}
 
-		// if this and cursor overlap, merge and return true
+		// if this and cursor overlap, merge into this and return true
 		mergeWith(cursor) {
-			if (this.left >= cursor.right || cursor.left >= this.right)
+			if (!(this.empty && this.left >= cursor.left && this.left <= cursor.right ||
+				cursor.empty && cursor.left >= this.left && cursor.left <= this.right) &&
+				(this.left >= cursor.right || cursor.left >= this.right))
 				return false;
 			this.set(Math.min(this.left, cursor.left), Math.max(this.right, cursor.right));
 			return true;
