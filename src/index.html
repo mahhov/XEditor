@@ -193,7 +193,7 @@
 
 	<div class="text-pane">
 		<pre id="numbers"></pre>
-		<pre id="text"><span id="empty-sizing-char"> </span></pre>
+		<pre id="text"></pre>
 		<div id="vertical-scroll">
 			<div id="vertical-scroll-handle"></div>
 		</div>
@@ -224,6 +224,7 @@
 		}
 	}
 
+	// todo make this a param instead of global var for all the functions that use it
 	let dbPromise = idb.openDB('xEditor-c5', 1, {
 		upgrade: db => {
 			db.createObjectStore('index');
@@ -318,8 +319,10 @@
 				$('#select-dir-button').textContent = this.entryHandle.name;
 			});
 
-			$('#load-index-button').addEventListener('click', async () =>
-				this.setIndex(await FileIndex.restore(await dbPromise, $('#index-select').value)));
+			$('#load-index-button').addEventListener('click', async () => {
+				let indexName = $('#index-select').value;
+				this.setIndex(indexName, await FileIndex.restore(await dbPromise, indexName));
+			});
 
 			$('#remove-index-button').addEventListener('click', async () => {
 				await FileIndex.remove(await dbPromise, $('#index-select').value);
@@ -347,18 +350,19 @@
 			});
 		}
 
-		setIndex(index) {
+		setIndex(name, index) {
 			this.index = index;
 			this.updateResults();
+			app.emitIndexSelection(name);
 		}
 
 		async onAddIndexClick() {
 			if (!this.entryHandle)
 				return;
 			let whitelist = $('#index-whitelist-input').value.split(/[, ]/g).filter(a => a);
-			let files = await FileIndex.read(this.entryHandle, whitelist);
-			this.setIndex(new FileIndex(files));
 			let indexName = `${$('#index-name-input').value} @ ${this.entryHandle.name} (${whitelist.join(', ')})`;
+			let files = await FileIndex.read(this.entryHandle, whitelist);
+			this.setIndex(indexName, new FileIndex(files));
 			this.index.store(await dbPromise, indexName);
 			this.loadIndexSelect();
 		}
@@ -393,18 +397,33 @@
 				fileEl.addEventListener('click', () => {
 					[...$('#results').children].forEach(fileEl => fileEl.classList.remove('selected'));
 					fileEl.classList.add('selected');
-					emitFileOpen(path);
+					app.emitFileOpen(path);
 				})
 			});
 		}
 
-		async readFile(path) {
+		async getFileHandle(path) {
 			if (!this.entryHandle)
 				return;
 			let file = this.index.files.find(({path: pathI}) => pathI.every((p, i) => p === path[i]));
 			file.handle = file.handle || await path.reduce(async (handle, p, i, a) =>
 				i === a.length - 1 ? (await handle).getFile(p) : (await handle).getDirectory(p), this.entryHandle);
-			return (await file.handle.getFile()).text();
+			return file.handle;
+		}
+
+		async readFile(path) {
+			let handle = await this.getFileHandle(path);
+			if (handle)
+				return (await handle.getFile()).text();
+		}
+
+		async writeFile(path, text) {
+			let handle = await this.getFileHandle(path);
+			if (!handle)
+				return;
+			let writer = await handle.createWriter();
+			await writer.write(0, text);
+			await writer.close();
 		}
 	}
 
@@ -492,22 +511,28 @@
 	}
 
 	class Text {
-		constructor(text = '', history = [{text, cursor: new Cursor()}]) {
+		constructor(text = '', history = [{text, cursors: [new Cursor()]}]) {
 			this.text = text;
 			this.history = history;
 			this.historyIndex = history.length - 1;
 			this.cursors = this.clonedCursors(history[this.historyIndex].cursors);
-			// todo cursors not merged correctly
+
+			let charSizingSpan = document.createElement('span');
+			charSizingSpan.textContent = ' ';
+			$('#text').appendChild(charSizingSpan);
+			({width: this.charWidth, height: this.charHeight} = charSizingSpan.getBoundingClientRect());
+			this.scrollX = 0;
+			this.scrollY = 0;
 		}
 
-		store(db, key = '___scratch___') {
+		store(db, indexName, path) {
 			let history = this.history.map(({text, cursors}) => ({text, cursors: cursors.map(({start, end}) => ({start, end}))}));
-			db.put('text', {text: this.text, history}, key);
+			db.put('text', {text: this.text, history}, [indexName, path]);
 		}
 
-		static async restore(db, key = '___scratch___') {
-			let {text, history} = await db.get('text', key) || {};
-			history = history.map(({text, cursors}) => ({text, cursors: cursors.map(({start, end}) => new Cursor(start, end))}));
+		static async restore(db, indexName, path) {
+			let {text, history} = await db.get('text', [indexName, path]) || {};
+			history = history && history.map(({text, cursors}) => ({text, cursors: cursors.map(({start, end}) => new Cursor(start, end))}));
 			return new Text(text, history);
 		}
 
@@ -923,12 +948,6 @@
 		// render methods
 		// todo move render functions to separate or controller class
 
-		initRender() {
-			({width: this.charWidth, height: this.charHeight} = $('#empty-sizing-char').getBoundingClientRect());
-			this.scrollX = 0;
-			this.scrollY = 0;
-		}
-
 		get scrollWidth() {
 			return parseInt($('#text').getBoundingClientRect().width / this.charWidth);
 		}
@@ -1043,35 +1062,48 @@
 
 	class TextPaneController {
 		constructor() {
-			dbPromise.then(async db => {
-				// init
-				this.text = await Text.restore(db);
-				this.text.initRender();
-				this.text.render();
+			// key text & cursor
+			document.addEventListener('keydown', e => this.onKeyDown(e));
 
-				// key text & cursor
-				document.addEventListener('keydown', e => this.onKeyDown(e));
+			// mouse cursor
+			$('#text').addEventListener('mousedown', e => this.onMouseDown(e)); // todo support .text-pane and #numbers clicks.
+			$('#text').addEventListener('mousemove', e => this.onMouseMove(e));
 
-				// mouse cursor
-				$('#text').addEventListener('mousedown', e => this.onMouseDown(e)); // todo support .text-pane and #numbers clicks.
-				$('#text').addEventListener('mousemove', e => this.onMouseMove(e));
-
-				// scrolling
-				this.scrollWheelEX = 0;
-				this.scrollWheelEY = 0;
-				this.scrollWheelDistance = 50;
-				this.verticalScrollDebouncer = new Debouncer(10);
-				$('.text-pane').addEventListener('wheel', e => this.onWheel(e));
-				$('#vertical-scroll').addEventListener('mousedown', e => {
-					this.verticalScrollDragging = true;
-					this.onVerticalScrollBar(e);
-				});
-				document.addEventListener('mouseup', () => this.verticalScrollDragging = false);
-				document.addEventListener('mousemove', e => {
-					if (this.verticalScrollDragging)
-						this.onVerticalScrollBar(e)
-				});
+			// scrolling
+			this.scrollWheelEX = 0;
+			this.scrollWheelEY = 0;
+			this.scrollWheelDistance = 50;
+			this.verticalScrollDebouncer = new Debouncer(10);
+			$('.text-pane').addEventListener('wheel', e => this.onWheel(e));
+			$('#vertical-scroll').addEventListener('mousedown', e => {
+				this.verticalScrollDragging = true;
+				this.onVerticalScrollBar(e);
 			});
+			document.addEventListener('mouseup', () => this.verticalScrollDragging = false);
+			document.addEventListener('mousemove', e => {
+				if (this.verticalScrollDragging)
+					this.onVerticalScrollBar(e)
+			});
+		}
+
+		async openFile(dbPromise, indexName = this.openData.indexName, path = this.openData.path, text = undefined) {
+			// if text is undefined, then use whatever the db has
+			// otherwise, if text is empty or non empty string, use text
+			this.openData = {indexName, path};
+			this.text = await Text.restore(await dbPromise, indexName, path);
+			if (text !== undefined && text !== this.text.text) {
+				this.text.replaceAll(text);
+				this.text.scrollToLastCursor();
+				this.text.render();
+				this.text.store(await dbPromise, this.openData.indexName, this.openData.path);
+				this.updateOpenFile();
+			} else
+				this.text.render();
+		}
+
+		updateOpenFile() {
+			if (this.openData.path.length)
+				app.emitWriteToFile(this.openData.path, this.text.text);
 		}
 
 		async onKeyDown(e) {
@@ -1204,7 +1236,8 @@
 
 			this.text.scrollToLastCursor();
 			this.text.render();
-			this.text.store(await dbPromise);
+			this.text.store(await dbPromise, this.openData.indexName, this.openData.path);
+			this.updateOpenFile();
 		}
 
 		onMouseDown(e) {
@@ -1264,27 +1297,36 @@
 					this.text.render();
 				});
 		}
+	}
 
-		async setText(text) {
-			this.text.replaceAll(text);
-			this.text.scrollToLastCursor();
-			this.text.render();
-			this.text.store(await dbPromise);
+	class App {
+		constructor() {
+			this.filePaneController = new FilePaneController();
+			this.textPaneController = new TextPaneController();
+			this.textPaneController.openFile(dbPromise, '__scratch__', []);
+		}
+
+		// todo use proper event emitting after we convert to custom elements
+		emitIndexSelection(indexName) {
+			this.textPaneController.openFile(dbPromise, indexName, []); // todo open a default file on index selection
+		}
+
+		async emitFileOpen(path) {
+			let fileText = await this.filePaneController.readFile(path);
+			if (fileText !== undefined)
+				this.textPaneController.openFile(dbPromise, undefined, path, fileText);
+		}
+
+		emitWriteToFile(path, text) {
+			return this.filePaneController.writeFile(path, text);
 		}
 	}
 
-	let filePaneController = new FilePaneController();
-	let textPaneController = new TextPaneController();
-
-	// todo use proper event emitting after we convert to custom elements
-	let emitFileOpen = async path => {
-		let fileText = await filePaneController.readFile(path);
-		if (fileText !== undefined)
-			textPaneController.setText(fileText);
-	};
+	let app = new App();
 
 	// TODO
 
+	// correct history state when storing at non-last-history-index
 	// file deletion, creation, save
 	// multitab files
 
