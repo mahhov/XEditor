@@ -13,8 +13,8 @@
 		--button-selected-bg: var(--medium);
 		--header-fg: var(--dark);
 		--numbers-fg: var(--medium);
-		--vertical-scroll-bg: var(--off-white);
-		--vertical-scroll-handle-bg: var(--medium);
+		--scroll-bg: var(--off-white);
+		--scroll-handle-bg: var(--medium);
 
 		--text-span-selected-fg: #fff;
 		--text-span-selected-bg: #333;
@@ -124,6 +124,13 @@
 		color: var(--numbers-fg);
 	}
 
+	.text-pane-center {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
+
 	#text {
 		margin: 5px;
 		flex: 1;
@@ -145,15 +152,28 @@
 		background: var(--text-span-marked-bg);
 	}
 
+	#horizontal-scroll,
 	#vertical-scroll {
-		width: 9px;
-		background: var(--vertical-scroll-bg);
+		background: var(--scroll-bg);
 	}
 
+	#horizontal-scroll-handle,
 	#vertical-scroll-handle {
 		pointer-events: none;
 		position: relative;
-		background: var(--vertical-scroll-handle-bg);
+		background: var(--scroll-handle-bg);
+	}
+
+	#horizontal-scroll {
+		height: 9px;
+	}
+
+	#horizontal-scroll-handle {
+		height: 100%;
+	}
+
+	#vertical-scroll {
+		width: 9px;
 	}
 </style>
 
@@ -193,11 +213,15 @@
 
 	<div class="text-pane">
 		<pre id="numbers"></pre>
-		<pre id="text"></pre>
+		<div class="text-pane-center">
+			<pre id="text"></pre>
+			<div id="horizontal-scroll">
+				<div id="horizontal-scroll-handle"></div>
+			</div>
+		</div>
 		<div id="vertical-scroll">
 			<div id="vertical-scroll-handle"></div>
 		</div>
-		<!--todo horiz scroll bar-->
 	</div>
 </div>
 
@@ -969,10 +993,12 @@
 			this.scrollY = Text.clamp(this.scrollY + dy, 0, this.scrollYMax);
 		}
 
-		scrollToRatio(rx, ry) {
+		scrollToRatio(rx = undefined, ry = undefined) {
 			// rx & ry are expected to be [0, 1). Scrolls to center.
-			this.scrollY = Text.clamp(parseInt(rx * this.scrollXMax - this.scrollwidth / 2), 0, this.scrollXMax);
-			this.scrollY = Text.clamp(parseInt(ry * this.scrollYMax - this.scrollHeight / 2), 0, this.scrollYMax);
+			if (rx !== undefined)
+				this.scrollX = Text.clamp(parseInt(rx * this.scrollXMax - this.scrollWidth / 2), 0, this.scrollXMax);
+			if (ry !== undefined)
+				this.scrollY = Text.clamp(parseInt(ry * this.scrollYMax - this.scrollHeight / 2), 0, this.scrollYMax);
 		}
 
 		scrollToLastCursor() {
@@ -1042,6 +1068,9 @@
 
 			$('#numbers').textContent = [...Array(Math.min(this.scrollHeight, this.scrollYMax - this.scrollY + 1))].map((_, i) => this.scrollY + i + 1).join('\n');
 
+			$('#horizontal-scroll-handle').style.width = `${this.scrollWidth / (this.scrollXMax + 1) * 100}%`;
+			$('#horizontal-scroll-handle').style.left = `${this.scrollX / (this.scrollXMax + 1) * 100}%`;
+
 			$('#vertical-scroll-handle').style.height = `${this.scrollHeight / (this.scrollYMax + 1) * 100}%`;
 			$('#vertical-scroll-handle').style.top = `${this.scrollY / (this.scrollYMax + 1) * 100}%`;
 		}
@@ -1073,14 +1102,21 @@
 			this.scrollWheelEX = 0;
 			this.scrollWheelEY = 0;
 			this.scrollWheelDistance = 50;
+			this.horizontalScrollDebouncer = new Debouncer(10);
 			this.verticalScrollDebouncer = new Debouncer(10);
 			$('.text-pane').addEventListener('wheel', e => this.onWheel(e));
+			$('#horizontal-scroll').addEventListener('mousedown', e => {
+				this.horizontalScrollDragging = true;
+				this.onHorizontalScrollBar(e);
+			});
 			$('#vertical-scroll').addEventListener('mousedown', e => {
 				this.verticalScrollDragging = true;
 				this.onVerticalScrollBar(e);
 			});
-			document.addEventListener('mouseup', () => this.verticalScrollDragging = false);
+			document.addEventListener('mouseup', () => this.horizontalScrollDragging = this.verticalScrollDragging = false);
 			document.addEventListener('mousemove', e => {
+				if (this.horizontalScrollDragging)
+					this.onHorizontalScrollBar(e);
 				if (this.verticalScrollDragging)
 					this.onVerticalScrollBar(e)
 			});
@@ -1264,7 +1300,7 @@
 		}
 
 		onMouseMove(e) {
-			if (!e.buttons || this.verticalScrollDragging)
+			if (!e.buttons || this.horizontalScrollDragging || this.verticalScrollDragging)
 				return;
 			let point = this.text.mouseXyToPoint(e.x, e.y);
 			if (point === this.lastMousePoint)
@@ -1289,11 +1325,20 @@
 			this.scrollWheelEY = this.scrollWheelEY % this.scrollWheelDistance;
 		}
 
+		onHorizontalScrollBar(e) {
+			if (e.buttons)
+				this.horizontalScrollDebouncer.request(() => {
+					let {left, width} = $('#horizontal-scroll').getBoundingClientRect();
+					this.text.scrollToRatio((e.clientX - left) / width, undefined);
+					this.text.render();
+				});
+		}
+
 		onVerticalScrollBar(e) {
 			if (e.buttons)
 				this.verticalScrollDebouncer.request(() => {
 					let {top, height} = $('#vertical-scroll').getBoundingClientRect();
-					this.text.scrollToRatio(0, (e.clientY - top) / height);
+					this.text.scrollToRatio(undefined, (e.clientY - top) / height);
 					this.text.render();
 				});
 		}
