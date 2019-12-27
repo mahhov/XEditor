@@ -225,7 +225,7 @@
 	}
 
 	// todo make this a param instead of global var for all the functions that use it
-	let dbPromise = idb.openDB('xEditor-c5', 1, {
+	let dbPromise = idb.openDB('xEditor-c6', 1, {
 		upgrade: db => {
 			db.createObjectStore('index');
 			db.createObjectStore('text');
@@ -511,10 +511,10 @@
 	}
 
 	class Text {
-		constructor(text = '', history = [{text, cursors: [new Cursor()]}]) {
-			this.text = text;
+		constructor(history = [{text: '', cursors: [new Cursor()]}], historyIndex = 0) {
 			this.history = history;
-			this.historyIndex = history.length - 1;
+			this.historyIndex = historyIndex;
+			this.text = history.slice(0, historyIndex + 1).reverse().find(({text}) => text !== undefined).text;
 			this.cursors = this.clonedCursors(history[this.historyIndex].cursors);
 
 			let charSizingSpan = document.createElement('span');
@@ -527,13 +527,13 @@
 
 		store(db, indexName, path) {
 			let history = this.history.map(({text, cursors}) => ({text, cursors: cursors.map(({start, end}) => ({start, end}))}));
-			db.put('text', {text: this.text, history}, [indexName, path]);
+			db.put('text', {history, historyIndex: this.historyIndex}, [indexName, path]);
 		}
 
 		static async restore(db, indexName, path) {
-			let {text, history} = await db.get('text', [indexName, path]) || {};
+			let {history, historyIndex} = await db.get('text', [indexName, path]) || {};
 			history = history && history.map(({text, cursors}) => ({text, cursors: cursors.map(({start, end}) => new Cursor(start, end))}));
-			return new Text(text, history);
+			return new Text(history, historyIndex);
 		}
 
 		static clamp(value, min, max) {
@@ -1326,7 +1326,6 @@
 
 	// TODO
 
-	// correct history state when storing at non-last-history-index
 	// file deletion, creation, save
 	// multitab files
 
