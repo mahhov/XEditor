@@ -1,10 +1,10 @@
 {
-  "name": "XEditor",
+  "name": "x-editor",
   "version": "1.0.0",
   "description": "",
   "scripts": {
     "build": "mkdir -p docs && cp src/index.html docs/index.html",
-    "buildUnused": "mkdir -p docs && cp src/index.html docs/index.html && browserify --debug --detect-globals false --no-builtins src/main.js -o docs/main.js"
+    "dev": "NODE_TLS_REJECT_UNAUTHORIZED='0' node server.js"
   },
   "keywords": [],
   "author": "mahhov",
