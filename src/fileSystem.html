@@ -1,0 +1,216 @@
+<style>
+	select {
+		width: 300px;
+	}
+
+	div.section {
+		margin-bottom: 20px;
+	}
+
+	p.header {
+		color: gray;
+		font-size: 14px;
+		margin: 0;
+	}
+</style>
+
+<div class="file-pane">
+	<div class="section">
+		<button id="select-dir-button">Select dir</button>
+	</div>
+	<div class="section">
+		<p class="header">Index list</p>
+		<div>
+			<select id="index-select"></select>
+		</div>
+		<div>
+			<button id="load-index-button">Load</button>
+			<button id="remove-index-button">Remove</button>
+		</div>
+	</div>
+	<div class="section">
+		<p class="header">Add index</p>
+		<input id="index-name-input" placeholder="Name">
+		<input id="index-whitelist-input" placeholder="Whitelist">
+		<button id="add-index-button">Add</button>
+	</div>
+	<div class="section">
+		<input id="file-selector" placeholder="path">
+	</div>
+	<div id="results" class="section"></div>
+</div>
+
+<script type="module">
+	import * as idb from 'https://unpkg.com/idb?module';
+
+	const $ = document.querySelector.bind(document);
+	const sleep = (ms = 0) => new Promise(resolve => setTimeout(resolve, ms));
+
+	const dbPromise = idb.openDB('xEditor-m', 1, {
+		upgrade: db => db.createObjectStore('index', {keyPath: 'name'})
+	});
+
+	class FileIndex {
+		constructor(name, files) {
+			this.name = name;
+			this.files = files;
+			this.files.forEach(file =>
+				file.pathJoint = file.pathJoint || file.path
+					.map(p => p.match(/[a-z]+|[A-Z][a-z]*|\d+|./g).join(' '))
+					.join(' / '));
+		}
+
+		static async listIndices() {
+			let db = await dbPromise;
+			return db.getAllKeys('index');
+		}
+
+		async store() {
+			let db = await dbPromise;
+			db.put('index', {
+				name: this.name,
+				files: this.files.map(({path}) => ({path})),
+			});
+		}
+
+		static async restore(name) {
+			let db = await dbPromise;
+			return new FileIndex(name, (await db.get('index', name)).files);
+		}
+
+		static async remove(name) {
+			let db = await dbPromise;
+			db.delete(name);
+		}
+
+		static readDirEntry(handle, timeout = 500) {
+			return new Promise(async (resolve, reject) => {
+				setTimeout(() => reject('timeout'), timeout);
+				let entries = [];
+				for await (const entry of await handle.getEntries()) {
+					entries.push(entry);
+				}
+				resolve(entries);
+			});
+		}
+
+		static async readDirEntryRetry(handle, timeout = 500, tries = 5, waitBetweenTries = 500) {
+			while (tries--) {
+				try {
+					return await FileIndex.readDirEntry(handle, timeout);
+				} catch (e) {
+					let msg = `Failed to read ${handle.name}, ${tries} tries remaining.`;
+					console.warn(msg);
+					await sleep(waitBetweenTries);
+					if (!tries) {
+						throw msg;
+					}
+				}
+			}
+		}
+
+		static async read(entryHandle, whitelistDirs = null) {
+			let start = Date.now();
+			let files = [];
+			let pending = [{path: [], handle: entryHandle, failed: 0}];
+
+			while (pending.length) {
+				let {path, handle, failed} = pending.pop();
+				try {
+					(await FileIndex.readDirEntryRetry(handle)).forEach(entry => {
+						if (entry.isFile) {
+							files.push({path: path.concat(entry.name), handle: entry});
+						} else if (path.length || !whitelistDirs || whitelistDirs.includes(entry.name)) {
+							pending.push({path: path.concat(entry.name), handle: entry, failed: 0});
+						}
+					});
+					if (path.length < 3) {
+						console.info(`Read ${files.length}, pending ${pending.length}, queued ${path}.`);
+					}
+				} catch (e) {
+					failed++;
+					console.error(`Skipped ${path},${handle.name}. Failure ${failed} of 3 - ${e}`);
+					if (failed < 3) {
+						pending.push({path, handle, failed: failed});
+					}
+				}
+			}
+			console.info(`Done, read ${files.length} files in ${(Date.now() - start) / 1000} seconds.`);
+			return files;
+		}
+	}
+
+	let index, entryHandle;
+
+	let setIndex = i => {
+		index = i;
+		updateResults();
+	};
+
+	let loadIndexSelect = () => {
+		while ($('#index-select').firstChild) {
+			$('#index-select').removeChild($('#index-select').firstChild);
+		}
+		FileIndex.listIndices().then(indices =>
+			indices.forEach(index => {
+				let option = document.createElement('option');
+				option.textContent = index;
+				$('#index-select').appendChild(option);
+			}));
+	};
+	loadIndexSelect();
+
+	$('#select-dir-button').addEventListener('click', async () =>
+		entryHandle = await chooseFileSystemEntries({type: 'openDirectory'}));
+
+	$('#load-index-button').addEventListener('click', () =>
+		setIndex(FileIndex.restore($('#index-select').value)));
+
+	$('#remove-index-button').addEventListener('click', () =>
+		FileIndex.remove($('#index-select').value));
+
+	$('#add-index-button').addEventListener('click', async e => {
+		if (!entryHandle) {
+			return;
+		}
+		let whitelist = $('#index-whitelist-input').value.split(/[, ]/g).filter(a => a);
+		let files = await FileIndex.read(entryHandle, whitelist);
+		let indexName = `${$('#index-name-input').value} @ ${entryHandle.name} (${whitelist.join(
+			', ')})`;
+		setIndex(new FileIndex(indexName, files));
+		index.store();
+		loadIndexSelect();
+	});
+
+	let updateResults = async () => {
+		if (!index)
+			return;
+
+		let input = $('#file-selector').value;
+		let files = (await index).files;
+		const regexSpecial = '.*+?^${}()|[]\\';
+		let filteredPaths = [], filterSize = 30;
+		if (input) {
+			let inputRegexString = [...input.replace(/\s/g, '')]
+				.map(c => regexSpecial.includes(c) ? '\\' + c : c)
+				.join('(.* )?');
+			let inputRegex = new RegExp(inputRegexString, 'i');
+			files.forEach(file => {
+				if (filteredPaths.length < filterSize && inputRegex.test(file.pathJoint))
+					filteredPaths.push({path: file.path});
+			});
+		} else
+			filteredPaths = files.slice(0, filterSize);
+
+		while ($('#results').firstChild)
+			$('#results').removeChild($('#results').firstChild);
+
+		filteredPaths.forEach(({path}) => {
+			let div = document.createElement('div');
+			div.textContent = path.join(' / ');
+			$('#results').appendChild(div);
+		});
+	};
+
+	$('#file-selector').addEventListener('input', updateResults);
+</script>
